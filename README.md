@@ -7,7 +7,7 @@ Tên đề tài: Ứng dụng chat client-server qua TCP, toàn bộ thao tác t
 |:---:|:----------|:----:|:-------:|
 | 1   | Nguyễn Ngọc Thảo Vy | 079306020618 | Trưởng nhóm |
 | 2   | Trần Minh Phương | 079206012379 | Thành viên |
-| 3   | 074206002808 | Hồ Minh Quân | Thành viên |
+| 3   | Hồ Minh Quân | 074206002808 | Thành viên |
 | 4   | Nguyễn Ngô Huế Nhi | 082306010528 | Thành viên |
 | 5   | Nguyễn Văn Linh | 044206008300 | Thành viên |
 | 6   | Lê Nguyễn Quỳnh Như | 079306031016 | Thành viên |
