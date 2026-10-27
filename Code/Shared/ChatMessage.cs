@@ -1,8 +1,15 @@
 ﻿using System;
 
-public class Class1
+public enum MessageType
 {
-	public Class1()
+	TextMessage,
+	Login,
+	Logout
+}
+
+public class ChatMessage
+{
+	public ChatMessage()
 	{
 	}
 }
