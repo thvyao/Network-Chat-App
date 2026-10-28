@@ -47,9 +47,9 @@
 		<Reference Include="System.Xml" />
 	</ItemGroup>
 	<ItemGroup>
-		<ProjectReference Include="..\Shared\Shared.csproj">
+		<ProjectReference Include="..\ChatShared\ChatShared.csproj">
 			<Project>{A2C46C9E-8E5A-4B6E-9E8D-6E3C0F5F7A21}</Project>
-			<Name>Shared</Name>
+			<Name>ChatShared</Name>
 		</ProjectReference>
 	</ItemGroup>
 	<ItemGroup>
