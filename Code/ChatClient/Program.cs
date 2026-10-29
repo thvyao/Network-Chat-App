@@ -12,6 +12,7 @@ namespace ChatClient
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
+            Application.Run(new LoginForm());
         }
     }
 }

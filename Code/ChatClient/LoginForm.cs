@@ -24,7 +24,7 @@ namespace ChatClient
         {
         }
 
-        private void chkShowPassword_CheckedChanged(object sender, EventArgs e)
+        private void chkShowPassWord_CheckedChanged(object sender, EventArgs e)
         {
             txtPassword.UseSystemPasswordChar = !chkShowPassword.Checked;
         }

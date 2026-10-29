@@ -53,9 +53,19 @@
 		</ProjectReference>
 	</ItemGroup>
 	<ItemGroup>
+		<Compile Include="LoginForm.cs">
+			<SubType>Form</SubType>
+		</Compile>
+		<Compile Include="LoginForm.Designer.cs">
+			<DependentUpon>LoginForm.cs</DependentUpon>
+		</Compile>
 		<Compile Include="Networking\IChatConnection.cs" />
 		<Compile Include="Networking\ChatClientConnection.cs" />
 		<Compile Include="Program.cs" />
+		<Compile Include="Properties\AssemblyInfo.cs" />
+		<EmbeddedResource Include="LoginForm.resx">
+			<DependentUpon>LoginForm.cs</DependentUpon>
+		</EmbeddedResource>
 	</ItemGroup>
 	<ItemGroup>
 		<None Include="App.config" />
