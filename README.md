@@ -15,7 +15,7 @@ Tên đề tài: Ứng dụng chat client-server qua TCP, toàn bộ thao tác t
 
 Mô tả: Ứng dụng chat TCP Client-Server.
 
-Yêu cầu môi trường: Cần cài Visual Studio 2022, .NET 8.
+Yêu cầu môi trường: Cần cài Visual Studio 2026, .NET 8.
 
 Hướng dẫn chạy:
 
