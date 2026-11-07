@@ -377,7 +377,6 @@ namespace ChatIntegrationTests
                 "Tên đăng nhập này là từ khóa bảo lưu của hệ thống.",
                 thongBaoHeThong
             );
-
             // kiểm tra tên all
             string thongBaoAll;
 
@@ -389,7 +388,6 @@ namespace ChatIntegrationTests
             );
 
             Assert.IsFalse(ketQuaAll);
-
             Assert.AreEqual(
                 "Tên đăng nhập này là từ khóa bảo lưu của hệ thống.",
                 thongBaoAll
@@ -408,13 +406,11 @@ namespace ChatIntegrationTests
                 Path.GetTempPath(),
                 "ChatAppTest_ACC06"
             );
-
             // xóa thư mục cũ nếu có
             if (Directory.Exists(thuMucTest))
             {
                 Directory.Delete(thuMucTest, true);
             }
-
             // tạo thư mục mới
             Directory.CreateDirectory(thuMucTest);
 
@@ -431,7 +427,6 @@ namespace ChatIntegrationTests
                 0,
                 out thongBaoKyTuA
             );
-
             Assert.IsFalse(ketQuaKyTuA);
 
             Assert.AreEqual(
@@ -469,22 +464,17 @@ namespace ChatIntegrationTests
                 Path.GetTempPath(),
                 "ChatAppTest_ACC07"
             );
-
             // xóa thư mục cũ nếu có
             if (Directory.Exists(thuMucTest))
             {
                 Directory.Delete(thuMucTest, true);
             }
-
             // tạo thư mục mới
             Directory.CreateDirectory(thuMucTest);
-
             // tạo bộ quản lý tài khoản
             AccountManager quanLyTaiKhoan =
                 new AccountManager(thuMucTest);
-
             string thongBaoLoi;
-
             // thử đăng ký với mật khẩu chỉ có 3 ký tự
             bool ketQua = quanLyTaiKhoan.Register(
                 "test02",
@@ -492,10 +482,8 @@ namespace ChatIntegrationTests
                 0,
                 out thongBaoLoi
             );
-
             // đăng ký phải thất bại
             Assert.IsFalse(ketQua);
-
             // kiểm tra thông báo lỗi
             Assert.AreEqual(
                 "Mật khẩu phải có độ dài ít nhất 4 ký tự.",
@@ -507,14 +495,11 @@ namespace ChatIntegrationTests
                 quanLyTaiKhoan.IsRegistered("test02");
 
             Assert.IsFalse(daTonTai);
-
             // xóa dữ liệu test
             Directory.Delete(thuMucTest, true);
         }
-        // -------------------------------------------------------------
         // INT-ACC-08:
         // Kiểm tra đăng nhập đúng sau khi đọc lại dữ liệu tài khoản.
-        // -------------------------------------------------------------
         [TestMethod]
         public void INT_ACC_08_KiemTraDangNhapDung()
         {
@@ -528,7 +513,6 @@ namespace ChatIntegrationTests
             {
                 Directory.Delete(testFolder, true);
             }
-
             Directory.CreateDirectory(testFolder);
 
             // tạo và đăng ký tài khoản
@@ -549,7 +533,6 @@ namespace ChatIntegrationTests
             // tạo AccountManager mới để đọc lại tài khoản
             AccountManager accountManager2 =
                 new AccountManager(testFolder);
-
             UserAccount account;
             string loginError;
 
@@ -564,15 +547,11 @@ namespace ChatIntegrationTests
             Assert.IsTrue(loginResult, loginError);
             Assert.IsNotNull(account);
             Assert.IsTrue(account.LastLogin.HasValue);
-
             Directory.Delete(testFolder, true);
         }
 
-
-        // -------------------------------------------------------------
         // INT-ACC-09:
-        // Kiểm tra hệ thống từ chối mật khẩu sai.
-        // -------------------------------------------------------------
+        // Kiểm tra hệ thống từ chối mật khẩu sai
         [TestMethod]
         public void INT_ACC_09_KiemTraMatKhauSai()
         {
@@ -619,12 +598,10 @@ namespace ChatIntegrationTests
                 "Mật khẩu không chính xác. Vui lòng thử lại.",
                 loginError
             );
-
             Directory.Delete(testFolder, true);
         }
         // INT-ACC-10:
         // Kiểm tra file không lưu mật khẩu 1234 dạng thông thường.
-        // -------------------------------------------------------------
         [TestMethod]
         public void INT_ACC_10_KiemTraKhongLuuMatKhauThuong()
         {
@@ -637,7 +614,6 @@ namespace ChatIntegrationTests
             {
                 Directory.Delete(testFolder, true);
             }
-
             Directory.CreateDirectory(testFolder);
 
             AccountManager accountManager =
@@ -676,7 +652,6 @@ namespace ChatIntegrationTests
             Assert.AreNotEqual("1234", fields[1]);
             Assert.IsFalse(string.IsNullOrEmpty(fields[1]));
             Assert.IsFalse(string.IsNullOrEmpty(fields[2]));
-
             Directory.Delete(testFolder, true);
         }
     }
