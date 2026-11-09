@@ -2,9 +2,9 @@ using System.Collections.Generic;
 
 namespace ChatServer.Infrastructure
 {
-    /// <summary>Abstraction for account persistence; replace it to use SQLite or a remote database.</summary>
     public interface IAccountRepository
     {
+        string StoragePath { get; }
         IReadOnlyList<UserAccount> Load();
         void Save(IEnumerable<UserAccount> accounts);
     }

@@ -7,10 +7,11 @@ using System.Text;
 
 namespace ChatServer.Infrastructure
 {
-    /// <summary>Lưu tài khoản trong tệp văn bản accounts.txt, mỗi tài khoản một dòng.</summary>
     public sealed class TextAccountRepository : IAccountRepository
     {
         private readonly string filePath;
+
+        public string StoragePath => filePath;
 
         public TextAccountRepository(string storageDirectory)
         {
@@ -50,7 +51,6 @@ namespace ChatServer.Infrastructure
                 }
                 catch (FormatException)
                 {
-                    // Bỏ qua dòng bị hỏng để các tài khoản còn lại vẫn dùng được.
                 }
             }
 
@@ -79,15 +79,5 @@ namespace ChatServer.Infrastructure
 
             File.WriteAllLines(filePath, lines, Encoding.UTF8);
         }
-
-        //private static string Encode(string value)
-        //{
-        //    return Convert.ToBase64String(Encoding.UTF8.GetBytes(value ?? string.Empty));
-        //}
-
-        //private static string Decode(string value)
-        //{
-        //    return Encoding.UTF8.GetString(Convert.FromBase64String(value));
-        //}
     }
 }

@@ -8,10 +8,6 @@ using ChatServer.Infrastructure;
 
 namespace ChatServer
 {
-    /// <summary>
-    /// Đối tượng lưu trữ thông tin một tài khoản người dùng đã đăng ký trong hệ thống.
-    /// Mật khẩu được bảo vệ an toàn bằng mã băm SHA-256 kèm Salt ngẫu nhiên.
-    /// </summary>
     [DataContract]
     public class UserAccount
     {
@@ -33,12 +29,6 @@ namespace ChatServer
         [DataMember(Name = "avatarIndex")]
         public int AvatarIndex { get; set; }
     }
-
-    /// <summary>
-    /// Bộ quản lý tài khoản người dùng phía Máy chủ (Server).
-    /// Chịu trách nhiệm xác thực đăng nhập, đăng ký tài khoản mới, kiểm tra mật khẩu băm,
-    /// và lưu trữ bền vững danh sách tài khoản vào tệp văn bản 'accounts.txt'.
-    /// </summary>
     public class AccountManager
     {
         private readonly IAccountRepository repository;
@@ -59,13 +49,12 @@ namespace ChatServer
             LoadAccounts();
         }
 
-        /// <summary>Tổng số lượng tài khoản đã đăng ký trong hệ thống</summary>
         public int TotalAccounts => accounts.Count;
 
-        /// <summary>
-        /// Nạp danh sách tài khoản từ tệp accounts.txt.
-        /// Khi chưa có tệp, hệ thống khởi tạo danh sách rỗng; người dùng tự đăng ký qua GUI.
-        /// </summary>
+
+        public string StoragePath => repository.StoragePath;
+
+
         private void LoadAccounts()
         {
             lock (repositoryLock)
@@ -84,37 +73,31 @@ namespace ChatServer
                 }
                 catch
                 {
-                    // Không tạo tài khoản có mật khẩu nhúng trong mã nguồn khi dữ liệu bị lỗi.
                 }
             }
         }
-
-        /// <summary>
-        /// Lưu danh sách tài khoản hiện tại vào tệp văn bản an toàn đa luồng.
-        /// </summary>
-        public void SaveAccounts()
+        public bool SaveAccounts(out string errorMessage)
         {
             lock (repositoryLock)
             {
-                SaveAccountsInternal();
+                return SaveAccountsInternal(out errorMessage);
             }
         }
 
-        private void SaveAccountsInternal()
+        private bool SaveAccountsInternal(out string errorMessage)
         {
             try
             {
                 repository.Save(accounts.Values);
+                errorMessage = null;
+                return true;
             }
-            catch
+            catch (Exception ex)
             {
-                // Silently handle save failure
+                errorMessage = ex.Message;
+                return false;
             }
         }
-
-        /// <summary>
-        /// Đăng ký tài khoản người dùng mới vào hệ thống.
-        /// </summary>
         public bool Register(string username, string password, int avatarIndex, out string errorMessage)
         {
             errorMessage = null;
@@ -187,8 +170,12 @@ namespace ChatServer
 
             if (accounts.TryAdd(username, newAccount))
             {
-                SaveAccounts();
-                return true;
+                if (SaveAccounts(out string saveError))
+                    return true;
+
+                accounts.TryRemove(username, out _);
+                errorMessage = "Không thể lưu tài khoản. Vui lòng thử lại. Chi tiết: " + saveError;
+                return false;
             }
             else
             {
@@ -196,10 +183,6 @@ namespace ChatServer
                 return false;
             }
         }
-
-        /// <summary>
-        /// Xác thực thông tin đăng nhập của người dùng.
-        /// </summary>
         public bool VerifyLogin(string username, string password, out UserAccount account, out string errorMessage)
         {
             account = null;
@@ -231,24 +214,17 @@ namespace ChatServer
                 return false;
             }
 
-            // Update last login timestamp
+            DateTime? previousLastLogin = account.LastLogin;
             account.LastLogin = DateTime.Now;
-            SaveAccounts();
+            if (!SaveAccounts(out _))
+                account.LastLogin = previousLastLogin;
             return true;
         }
-
-        /// <summary>
-        /// Kiểm tra xem tên đăng nhập đã được đăng ký trong hệ thống hay chưa.
-        /// </summary>
         public bool IsRegistered(string username)
         {
             if (string.IsNullOrWhiteSpace(username)) return false;
             return accounts.ContainsKey(username.Trim());
         }
-
-        /// <summary>
-        /// Lấy danh sách toàn bộ các tài khoản đã đăng ký
-        /// </summary>
         public IReadOnlyList<UserAccount> GetAllAccounts()
         {
             return accounts.Values.ToList();

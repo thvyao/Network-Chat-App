@@ -4,8 +4,6 @@ using System.Text;
 
 namespace ChatShared.Helpers
 {
-    // Lớp tiện ích bảo mật hỗ trợ sinh Salt ngẫu nhiên và băm mật khẩu bằng thuật toán SHA-256.
-    // Giúp lưu trữ mật khẩu an toàn trên máy chủ và chống tấn công Rainbow Table.
     public static class SecurityHelper
     {
         public static string GenerateSalt(int size = 16)
@@ -17,7 +15,6 @@ namespace ChatShared.Helpers
             }
             return Convert.ToBase64String(saltBytes);
         }
-
         public static string HashPassword(string password, string salt)
         {
             if (password == null) password = string.Empty;
@@ -30,7 +27,6 @@ namespace ChatShared.Helpers
                 return BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
             }
         }
-
         public static bool VerifyPassword(string password, string salt, string expectedHash)
         {
             if (string.IsNullOrEmpty(expectedHash)) return false;
