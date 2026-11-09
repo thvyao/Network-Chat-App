@@ -13,6 +13,7 @@ namespace ChatClient.Networking
         private readonly NetworkStream stream;
         private readonly IChatMessageSerializer serializer;
         private readonly CancellationTokenSource cancellation = new CancellationTokenSource();
+        private readonly SemaphoreSlim sendLock = new SemaphoreSlim(1, 1);
         private bool started;
 
         public ChatClientConnection(TcpClient tcpClient, NetworkStream networkStream,
@@ -28,10 +29,18 @@ namespace ChatClient.Networking
         public event EventHandler<ChatMessage> MessageReceived;
         public event EventHandler<Exception> ConnectionClosed;
 
-        public Task SendAsync(ChatMessage message, CancellationToken cancellationToken = default)
+        public async Task SendAsync(ChatMessage message, CancellationToken cancellationToken = default)
         {
             if (message == null) throw new ArgumentNullException(nameof(message));
-            return serializer.SendAsync(stream, message, cancellationToken);
+            await sendLock.WaitAsync(cancellationToken);
+            try
+            {
+                await serializer.SendAsync(stream, message, cancellationToken);
+            }
+            finally
+            {
+                sendLock.Release();
+            }
         }
 
         public void StartReceiving()
@@ -79,6 +88,7 @@ namespace ChatClient.Networking
         {
             Disconnect();
             cancellation.Dispose();
+            sendLock.Dispose();
         }
     }
 }
