@@ -37,8 +37,21 @@ namespace ChatClient
             username = authUser;
             cts = new CancellationTokenSource();
 
+            lblServerIPValue.Text = serverIP;
+            lblPortValue.Text = serverPort.ToString();
+
             SetConnectedState(true);
-            this.Text = $"Chat Client - {username} (Đã kết nối {serverIP}:{serverPort})";
+            picOwnAvatar.Image = GetAvatar(username, 44);
+            lblOwnUsername.Text = username;
+            lblOwnStatus.Text = "Trực tuyến";
+            lblOwnStatusDot.ForeColor = Color.FromArgb(52, 168, 83);
+
+            AddSystemMessage($"Đã đăng nhập thành công vào máy chủ {serverIP}:{serverPort} với tài khoản '{username}'.");
+
+            if (initialLoginMsg != null && initialLoginMsg.UserList != null)
+            {
+                UpdateUserList(initialLoginMsg.UserList);
+            }
 
             if (IsHandleCreated)
             {
@@ -55,7 +68,7 @@ namespace ChatClient
             if (client == null || !client.Connected) return;
             StartConnectionEvents();
 
-            var reqList = new ChatMessage
+            var reqList = new ChatMessage 
             {
                 Type = MessageType.RequestUserList,
                 Sender = username,
@@ -106,15 +119,15 @@ namespace ChatClient
         private void HandleConnectionClosed(Exception error)
         {
             if (cts == null || cts.IsCancellationRequested) return;
+            AddSystemMessage(error == null ? "Máy chủ đã đóng kết nối." : "Kết nối máy chủ bị gián đoạn.");
             Disconnect();
-            MessageBox.Show("Mất kết nối tới máy chủ.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
-
+        #region Connection Logic
         public void RequestLogout()
         {
             var result = MessageBox.Show(
-                "Bạn có chắc chắn muốn đăng xuất?",
-                "Xác nhận",
+                "Bạn có chắc chắn muốn đăng xuất khỏi tài khoản?",
+                "Xác nhận đăng xuất",
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Question);
 
@@ -145,7 +158,11 @@ namespace ChatClient
             }
             catch { }
 
-            try { cts?.Cancel(); } catch { }
+            try
+            {
+                cts?.Cancel();
+            }
+            catch { }
 
             CleanupNetwork();
             OnDisconnected();
@@ -164,15 +181,37 @@ namespace ChatClient
         private void OnDisconnected()
         {
             SetConnectedState(false);
-            this.Text = "Chat Client - Ngoại tuyến";
-        }
 
+            lblOwnStatus.Text = "Ngoại tuyến";
+            lblOwnStatusDot.ForeColor = Color.Gray;
+
+            InitUserList();
+            SwitchToBroadcast();
+
+            AddSystemMessage("Đã ngắt kết nối khỏi máy chủ.");
+        }
         private void SetConnectedState(bool connected)
         {
-            btnSend.Enabled = connected;
-            txtMessage.Enabled = connected;
+            if (connected)
+            {
+                btnSend.Enabled = true;
+                txtMessage.Enabled = true;
+                btnEmoji.Enabled = true;
+            }
+            else
+            {
+                btnSend.Enabled = false;
+                txtMessage.Enabled = false;
+                btnEmoji.Enabled = false;
+
+                CancelReply();
+            }
+            lblConnectionStatusValue.Text = connected ? "Đã kết nối" : "Chưa kết nối";
         }
 
+        #endregion
+
+        #region Message Dispatching
         private void ProcessReceivedMessage(ChatMessage msg)
         {
             switch (msg.Type)
@@ -180,7 +219,7 @@ namespace ChatClient
                 case MessageType.LoginResult:
                     if (!msg.Success)
                     {
-                        MessageBox.Show($"Đăng nhập thất bại: {msg.Content}", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        MessageBox.Show($"Đăng nhập không thành công: {msg.Content}", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         Disconnect();
                     }
                     break;
@@ -188,29 +227,60 @@ namespace ChatClient
                 case MessageType.UserList:
                     if (msg.UserList != null)
                     {
-                        lstMessages.Items.Add($"[Hệ thống] Danh sách online: {string.Join(", ", msg.UserList)}");
+                        UpdateUserList(msg.UserList);
                     }
                     break;
 
                 case MessageType.UserJoined:
-                    lstMessages.Items.Add($"[Hệ thống] {msg.Sender} đã tham gia.");
+                    if (!string.Equals(msg.Sender, username, StringComparison.OrdinalIgnoreCase))
+                    {
+                        AddSystemMessage($"{msg.Sender} đã tham gia cuộc trò chuyện.");
+                        AddUserIfNotExists(msg.Sender);
+                    }
                     break;
 
                 case MessageType.UserLeft:
-                    lstMessages.Items.Add($"[Hệ thống] {msg.Sender} đã rời phòng.");
+                    if (!string.Equals(msg.Sender, username, StringComparison.OrdinalIgnoreCase))
+                    {
+                        AddSystemMessage($"{msg.Sender} đã rời cuộc trò chuyện.");
+                        RemoveUser(msg.Sender);
+                    }
+                    break;
+
+                case MessageType.ServerMessage:
+                    AddSystemMessage(msg.Content);
                     break;
 
                 case MessageType.TextMessage:
+                case MessageType.EmojiMessage:
+                case MessageType.ReplyMessage:
+                case MessageType.ForwardMessage:
                 case MessageType.PrivateMessage:
-                    lstMessages.Items.Add($"[{msg.Timestamp:HH:mm:ss}] {msg.Sender}: {msg.Content}");
+                    var displayMsg = new DisplayMessage
+                    {
+                        Id = msg.Id,
+                        Sender = msg.Sender,
+                        Content = msg.Content,
+                        Timestamp = msg.Timestamp,
+                        IsOwn = string.Equals(msg.Sender, username, StringComparison.OrdinalIgnoreCase),
+                        ReplyToSender = msg.ReplyToSender,
+                        ReplyToContent = msg.ReplyToContent,
+                        ForwardFrom = msg.ForwardFrom,
+                        Recipient = msg.Recipient,
+                        IsSystem = false
+                    };
+                    AddMessageToChat(displayMsg);
                     break;
 
                 case MessageType.Error:
-                    MessageBox.Show($"[Lỗi máy chủ] {msg.Content}", "Lỗi mạng", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    AddSystemMessage($"[Lỗi từ máy chủ] {msg.Content}");
                     break;
             }
         }
 
+        #endregion
+
+        #region Messaging: Send, Reply, Forward, Display
         private async void btnSend_Click(object sender, EventArgs e)
         {
             await SendTextMessage();
@@ -223,7 +293,7 @@ namespace ChatClient
 
             if (client == null || !client.Connected || stream == null)
             {
-                MessageBox.Show("Chưa kết nối tới máy chủ.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Bạn chưa kết nối tới máy chủ.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -234,26 +304,53 @@ namespace ChatClient
                     Sender = username,
                     Recipient = currentRecipient,
                     Content = text,
-                    Timestamp = DateTime.Now,
-                    Type = currentRecipient != null ? MessageType.PrivateMessage : MessageType.TextMessage
+                    Timestamp = DateTime.Now
                 };
+
+                if (replyingTo != null)
+                {
+                    msg.Type = MessageType.ReplyMessage;
+                    msg.ReplyToId = replyingTo.Id;
+                    msg.ReplyToSender = replyingTo.Sender;
+                    msg.ReplyToContent = replyingTo.Content;
+                }
+                else if (currentRecipient != null)
+                {
+                    msg.Type = MessageType.PrivateMessage;
+                }
+                else
+                {
+                    msg.Type = MessageType.TextMessage;
+                }
 
                 if (chatConnection == null)
                     throw new InvalidOperationException("Kết nối tới máy chủ chưa sẵn sàng.");
 
                 await chatConnection.SendAsync(msg, cts.Token);
-                lstMessages.Items.Add($"[{DateTime.Now:HH:mm:ss}] Tôi: {text}");
+
+                var displayMsg = new DisplayMessage
+                {
+                    Id = msg.Id,
+                    Sender = username,
+                    Recipient = currentRecipient,
+                    Content = text,
+                    Timestamp = msg.Timestamp,
+                    IsOwn = true,
+                    ReplyToSender = msg.ReplyToSender,
+                    ReplyToContent = msg.ReplyToContent,
+                    ForwardFrom = msg.ForwardFrom,
+                    IsSystem = false
+                };
+
+                AddMessageToChat(displayMsg);
+
                 txtMessage.Clear();
+                CancelReply();
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"Lỗi gửi tin nhắn: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
-        }
-
-        private void ClientForm_FormClosing(object sender, FormClosingEventArgs e)
-        {
-            Disconnect();
         }
     }
 }
