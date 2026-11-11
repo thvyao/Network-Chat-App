@@ -77,7 +77,6 @@
             this.lblSlogan.TabIndex = 3;
             this.lblSlogan.Text = "Mọi kết nối,\n một không gian";
             this.lblSlogan.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            this.lblSlogan.Click += new System.EventHandler(this.lblSlogan_Click);
             // 
             // lblBrandName
             // 
@@ -96,7 +95,7 @@
             this.picLogo.Image = ((System.Drawing.Image)(resources.GetObject("picLogo.Image")));
             this.picLogo.Location = new System.Drawing.Point(10, 117);
             this.picLogo.Name = "picLogo";
-            this.picLogo.Size = new System.Drawing.Size(90, 90);
+            this.picLogo.Size = new System.Drawing.Size(83, 90);
             this.picLogo.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
             this.picLogo.TabIndex = 1;
             this.picLogo.TabStop = false;
@@ -272,7 +271,6 @@
             this.Name = "LoginForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "WeTALK - Login";
-            this.Load += new System.EventHandler(this.Form1_Load);
             this.pnlBrand.ResumeLayout(false);
             this.pnlBrand.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.picLogo)).EndInit();

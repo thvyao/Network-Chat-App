@@ -92,7 +92,7 @@
             this.picLogo.Image = ((System.Drawing.Image)(resources.GetObject("picLogo.Image")));
             this.picLogo.Location = new System.Drawing.Point(10, 117);
             this.picLogo.Name = "picLogo";
-            this.picLogo.Size = new System.Drawing.Size(90, 90);
+            this.picLogo.Size = new System.Drawing.Size(83, 90);
             this.picLogo.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
             this.picLogo.TabIndex = 0;
             this.picLogo.TabStop = false;
@@ -172,7 +172,6 @@
             this.lblConfirmPassword.Size = new System.Drawing.Size(158, 23);
             this.lblConfirmPassword.TabIndex = 11;
             this.lblConfirmPassword.Text = "Xác nhận mật khẩu";
-            this.lblConfirmPassword.Click += new System.EventHandler(this.label1_Click);
             // 
             // txtPassword
             // 
@@ -182,7 +181,6 @@
             this.txtPassword.Size = new System.Drawing.Size(388, 32);
             this.txtPassword.TabIndex = 10;
             this.txtPassword.UseSystemPasswordChar = true;
-            this.txtPassword.TextChanged += new System.EventHandler(this.txtPassword_TextChanged);
             // 
             // lblPassword
             // 
@@ -201,7 +199,6 @@
             this.txtUsername.Name = "txtUsername";
             this.txtUsername.Size = new System.Drawing.Size(388, 32);
             this.txtUsername.TabIndex = 8;
-            this.txtUsername.TextChanged += new System.EventHandler(this.txtUsername_TextChanged);
             // 
             // lblUsername
             // 
