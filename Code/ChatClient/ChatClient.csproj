@@ -87,3 +87,12 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
+<EmbeddedResource Include="ClientForm.resx">
+  <DependentUpon>ClientForm.cs</DependentUpon>
+</EmbeddedResource>
+
+<Compile Include="DisplayMessage.cs" />
+
+<Compile Include="MessageBubbleControl.cs">
+  <SubType>UserControl</SubType>
+</Compile>
