@@ -1,49 +1,52 @@
-using System;
-using System.Net.Sockets;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Windows.Forms;
-using ChatClient.Networking;
 using System.Runtime.InteropServices;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Linq;
+using System.Net.Sockets;
 using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows.Forms;
 using ChatShared.Helpers;
 using ChatShared.Protocol;
+using ChatClient.Networking;
 
 namespace ChatClient
 {
     public partial class ClientForm : Form
     {
-        private TcpClient client; 
+        private TcpClient client;
         private NetworkStream stream; 
-        private CancellationTokenSource cts; 
-        private string username; 
+        private CancellationTokenSource cts;
+        private string username;
         private IChatConnection chatConnection;
-
         private string currentRecipient = null;
-        private readonly List<DisplayMessage> chatMessages = new List<DisplayMessage>();
-
+        private readonly List<DisplayMessage> chatMessages = new List<DisplayMessage>(); 
+        private ChatMessage replyingTo = null; 
         private readonly Dictionary<string, Image> avatarCache = new Dictionary<string, Image>(StringComparer.OrdinalIgnoreCase);
-        private readonly Dictionary<string, UserListItem> onlineUsers = new Dictionary<string, UserListItem>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, UserListItem> onlineUsers =
+            new Dictionary<string, UserListItem>(
+                StringComparer.OrdinalIgnoreCase
+            );
 
-        private Image allChannelAvatar;
-        private bool isFilteringUsers = false;
+        private Image allChannelAvatar; 
 
+        // Lớp biểu diễn một mục người dùng trong danh sách lstUsers.
         public class UserListItem
         {
             public string Username { get; set; }
-            public bool IsAll { get; set; }
-            public int UnreadCount { get; set; }
-
+            public bool IsAll { get; set; } 
+            public int UnreadCount { get; set; } 
             public override string ToString()
             {
                 return IsAll ? "Tất cả" : Username;
             }
         }
 
+        private bool isFilteringUsers = false;
+        public bool WantsRelogin { get; set; } = false;
         public ClientForm()
         {
             InitializeComponent();
@@ -56,6 +59,7 @@ namespace ChatClient
             );
             pnlSettingsView.Visible = false;
 
+            // Kích hoạt DoubleBuffering cho panel chat và listbox danh sách người dùng để chống nhấp nháy
             EnableDoubleBuffering(pnlChatFlow);
             EnableDoubleBuffering(lstUsers);
             InitializeApp();
@@ -63,13 +67,15 @@ namespace ChatClient
             lstUsers.BringToFront();
             splitContainerMain.Panel1.PerformLayout();
         }
-       
+
+        // Khởi tạo ClientForm với phiên làm việc đã xác thực từ LoginForm.
         public ClientForm(string authUser, TcpClient authClient, NetworkStream authStream, ChatMessage initialLoginMsg, string serverIP, int serverPort)
             : this()
         {
             AttachAuthenticatedSession(authUser, authClient, authStream, initialLoginMsg, serverIP, serverPort);
         }
 
+        // Gắn phiên làm việc đã xác thực và bắt đầu giao tiếp qua mạng TCP.
         public void AttachAuthenticatedSession(string authUser, TcpClient authClient, NetworkStream authStream, ChatMessage initialLoginMsg, string serverIP, int serverPort)
         {
             client = authClient;
@@ -80,6 +86,7 @@ namespace ChatClient
             lblServerIPValue.Text = serverIP;
             lblPortValue.Text = serverPort.ToString();
 
+            // Cập nhật giao diện trạng thái kết nối
             SetConnectedState(true);
             picOwnAvatar.Image = GetAvatar(username, 44);
             lblOwnUsername.Text = username;
@@ -108,7 +115,7 @@ namespace ChatClient
             if (client == null || !client.Connected) return;
             StartConnectionEvents();
 
-            var reqList = new ChatMessage
+            var reqList = new ChatMessage 
             {
                 Type = MessageType.RequestUserList,
                 Sender = username,
@@ -178,6 +185,9 @@ namespace ChatClient
             btnSend.FlatAppearance.BorderSize = 0;
             btnCancelReply.FlatAppearance.BorderSize = 0;
 
+
+
+            // Tạo nút Đăng xuất trong Settings
             Button btnLogoutSettings = new Button
             {
                 Text = "Đăng xuất",
@@ -250,6 +260,7 @@ namespace ChatClient
         }
 
         #region Connection Logic
+        //Client Core/Network: đăng xuất, đóng socket, dọn tài nguyên và trạng thái kết nối.
         public void RequestLogout()
         {
             var result = MessageBox.Show(
@@ -333,12 +344,13 @@ namespace ChatClient
 
                 CancelReply();
             }
-            lblConnectionStatusValue.Text = connected ? "Đã kết nối" : "Chưa kết nối"; 
+            lblConnectionStatusValue.Text = connected ? "Đã kết nối" : "Chưa kết nối";
         }
 
         #endregion
 
         #region Message Dispatching
+        //Client Core/Network: nhận ChatMessage từ server và điều phối tới giao diện.
         private void ProcessReceivedMessage(ChatMessage msg)
         {
             switch (msg.Type)
@@ -408,6 +420,8 @@ namespace ChatClient
         #endregion
 
         #region User List Management
+        // GUI chính: lọc, cập nhật, chọn và vẽ danh sách người dùng.
+
 
         private void RefreshFilteredUserList()
         {
@@ -465,6 +479,7 @@ namespace ChatClient
 
         private void UpdateUserList(string[] users)
         {
+            // Danh sách Online mới nhận từ Server
             var receivedUsers = new HashSet<string>(
                 StringComparer.OrdinalIgnoreCase
             );
@@ -475,6 +490,7 @@ namespace ChatClient
                 {
                     string name = user?.Trim();
 
+                    // Bỏ tên rỗng và tài khoản của chính mình
                     if (string.IsNullOrEmpty(name) ||
                         string.Equals(name, username,
                             StringComparison.OrdinalIgnoreCase))
@@ -483,6 +499,8 @@ namespace ChatClient
                     }
 
                     receivedUsers.Add(name);
+
+                    // Chỉ thêm tài khoản chưa tồn tại
                     if (!onlineUsers.ContainsKey(name))
                     {
                         onlineUsers.Add(name, new UserListItem
@@ -494,6 +512,7 @@ namespace ChatClient
                 }
             }
 
+            // Xóa người không còn Online theo danh sách Server
             foreach (string name in onlineUsers.Keys.ToList())
             {
                 if (!receivedUsers.Contains(name))
@@ -508,11 +527,13 @@ namespace ChatClient
 
             RefreshFilteredUserList();
 
+
             if (recipientOffline)
             {
                 SwitchToBroadcast();
             }
         }
+
 
         private void AddUserIfNotExists(string user)
         {
@@ -538,10 +559,12 @@ namespace ChatClient
             RefreshFilteredUserList();
         }
 
+
         private void RemoveUser(string user)
         {
             if (string.IsNullOrEmpty(user))
                 return;
+
             onlineUsers.Remove(user);
 
             if (string.Equals(currentRecipient, user,
@@ -549,7 +572,6 @@ namespace ChatClient
             {
                 SwitchToBroadcast();
             }
-
             RefreshFilteredUserList();
         }
         private void lstUsers_SelectedIndexChanged(object sender, EventArgs e)
@@ -560,12 +582,12 @@ namespace ChatClient
             {
                 string nextRecipient = item.IsAll ? null : item.Username;
 
-            if (!string.Equals(currentRecipient, nextRecipient,
-                StringComparison.OrdinalIgnoreCase))
-            {
-                CancelReply();
-            }
-            
+                if (!string.Equals(currentRecipient, nextRecipient,
+                    StringComparison.OrdinalIgnoreCase))
+                {
+                    CancelReply();
+                }
+
                 if (item.IsAll)
                 {
                     currentRecipient = null;
@@ -601,8 +623,8 @@ namespace ChatClient
 
             if (onlineUsers.TryGetValue(senderName, out UserListItem item))
             {
-
                 item.UnreadCount++;
+
                 lstUsers.Invalidate();
             }
         }
@@ -708,6 +730,8 @@ namespace ChatClient
         #endregion
 
         #region Messaging: Send, Reply, Forward, Display
+        // Client Core/Network: btnSend_Click và luồng gửi tin nhắn cơ bản.
+        //  Reply/Forward/Emoji: chỉ bổ sung nhánh Reply trong SendTextMessage;
         private async void btnSend_Click(object sender, EventArgs e)
         {
             await SendTextMessage();
@@ -729,7 +753,7 @@ namespace ChatClient
                 ChatMessage msg = new ChatMessage
                 {
                     Sender = username,
-                    Recipient = currentRecipient,
+                    Recipient = currentRecipient, 
                     Content = text,
                     Timestamp = DateTime.Now
                 };
@@ -755,7 +779,6 @@ namespace ChatClient
 
                 await chatConnection.SendAsync(msg, cts.Token);
 
-                // Add to local chat list
                 var displayMsg = new DisplayMessage
                 {
                     Id = msg.Id,
@@ -781,6 +804,7 @@ namespace ChatClient
             }
         }
 
+        // GUI chính: lưu và hiển thị tin nhắn/bong bóng chat.
         private void AddSystemMessage(string content)
         {
             var sysMsg = new DisplayMessage
@@ -908,9 +932,142 @@ namespace ChatClient
             }
             pnlChatFlow.ResumeLayout(true);
         }
+
+        private void StartReply(DisplayMessage msg)
+        {
+            replyingTo = new ChatMessage
+            {
+                Id = msg.Id,
+                Sender = msg.Sender,
+                Content = msg.Content
+            };
+
+            string preview = msg.Content;
+            if (preview.Length > 50) preview = preview.Substring(0, 47) + "...";
+            lblReplyPreviewText.Text = $"Đang trả lời {msg.Sender}: \"{preview}\"";
+            pnlReplyPreview.Visible = true;
+            txtMessage.Focus();
+        }
+
+        private void CancelReply()
+        {
+            replyingTo = null;
+            pnlReplyPreview.Visible = false;
+        }
+
+        private void btnCancelReply_Click(object sender, EventArgs e)
+        {
+            CancelReply();
+        }
+
+        private void PromptForward(DisplayMessage msg)
+        {
+            if (client == null || !client.Connected)
+            {
+                MessageBox.Show("Bạn chưa kết nối tới máy chủ.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            var recipients = new List<string> { "Tất cả (Phòng chung)" };
+
+            recipients.AddRange(onlineUsers.Keys);
+
+            using (var dlg = new ForwardForm(msg, recipients))
+            {
+                if (dlg.ShowDialog(this) == DialogResult.OK)
+                {
+                    string selected = dlg.SelectedRecipient;
+                    string target = string.Equals(selected, "Tất cả (Phòng chung)", StringComparison.Ordinal) ? null : selected;
+                    ForwardMessage(msg, target);
+                }
+            }
+        }
+
+        private async void ForwardMessage(DisplayMessage msg, string targetUser)
+        {
+            try
+            {
+                var fwdMsg = new ChatMessage
+                {
+                    Type = MessageType.ForwardMessage,
+                    Sender = username,
+                    Recipient = targetUser,
+                    Content = msg.Content,
+                    ForwardFrom = string.IsNullOrEmpty(msg.ForwardFrom) ? msg.Sender : msg.ForwardFrom,
+                    Timestamp = DateTime.Now
+                };
+
+                if (chatConnection == null)
+                    throw new InvalidOperationException("Kết nối tới máy chủ chưa sẵn sàng.");
+
+                await chatConnection.SendAsync(fwdMsg, cts.Token);
+
+                var displayMsg = new DisplayMessage
+                {
+                    Id = fwdMsg.Id,
+                    Sender = username,
+                    Recipient = targetUser,
+                    Content = msg.Content,
+                    ForwardFrom = fwdMsg.ForwardFrom,
+                    Timestamp = fwdMsg.Timestamp,
+                    IsOwn = true,
+                    IsSystem = false
+                };
+
+                AddMessageToChat(displayMsg);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Lỗi chuyển tiếp tin nhắn: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        #endregion
+
+        #region Emoji Picker
+        //Reply/Forward/Emoji: mở bộ chọn và chèn emoji vào ô nhập.
+
+        private void btnEmoji_Click(object sender, EventArgs e)
+        {
+            ShowEmojiPicker();
+        }
+
+        private void ShowEmojiPicker()
+        {
+            var picker = new EmojiPickerForm();
+            picker.OnEmojiSelected += (emoji) =>
+            {
+                InsertEmoji(emoji);
+            };
+            picker.OnEnterPressed += async () =>
+            {
+                txtMessage.Focus();
+                await SendTextMessage();
+            };
+
+            Point screenPt = btnEmoji.PointToScreen(new Point(0, -picker.Height - 4));
+            if (screenPt.Y < 10)
+            {
+                screenPt = btnEmoji.PointToScreen(new Point(0, btnEmoji.Height + 4));
+            }
+
+            picker.Location = screenPt;
+            picker.Show(this);
+        }
+
+        private void InsertEmoji(string emoji)
+        {
+            int sel = txtMessage.SelectionStart;
+            txtMessage.Text = txtMessage.Text.Insert(sel, emoji);
+            txtMessage.SelectionStart = sel + emoji.Length;
+            txtMessage.SelectionLength = 0;
+        }
+
         #endregion
 
         #region Input Handling & Form Lifecycle
+        //GUI chính: phím Enter, điều hướng Settings/Chats, tìm kiếm và vòng đời form.
+
         private void txtMessage_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.KeyCode == Keys.Enter && !e.Shift)
@@ -948,7 +1105,9 @@ namespace ChatClient
         {
             if (pnlSettingsView.Visible)
                 return;
+
             replyWasVisible = pnlReplyPreview.Visible;
+
             pnlChatHeader.Visible = false;
             pnlChatFlow.Visible = false;
             pnlReplyPreview.Visible = false;
