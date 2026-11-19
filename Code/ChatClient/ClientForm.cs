@@ -22,6 +22,13 @@ namespace ChatClient
         private CancellationTokenSource cts;
         private string username;
         private IChatConnection chatConnection;
+        private string serverIP;
+        private int serverPort;
+        // Chỉ giữ trong RAM để đăng nhập lại sau khi server khởi động lại.
+        private string sessionPassword;
+        private readonly SemaphoreSlim reconnectLock = new SemaphoreSlim(1, 1);
+        private readonly CancellationTokenSource reconnectCts = new CancellationTokenSource();
+        private bool isClosing;
         private string currentRecipient = null;
         private readonly List<DisplayMessage> chatMessages = new List<DisplayMessage>(); 
         private ChatMessage replyingTo = null; 
@@ -69,9 +76,10 @@ namespace ChatClient
         }
 
         // Khởi tạo ClientForm với phiên làm việc đã xác thực từ LoginForm.
-        public ClientForm(string authUser, TcpClient authClient, NetworkStream authStream, ChatMessage initialLoginMsg, string serverIP, int serverPort)
+        public ClientForm(string authUser, TcpClient authClient, NetworkStream authStream, ChatMessage initialLoginMsg, string serverIP, int serverPort, string password)
             : this()
         {
+            sessionPassword = password;
             AttachAuthenticatedSession(authUser, authClient, authStream, initialLoginMsg, serverIP, serverPort);
         }
 
@@ -81,6 +89,8 @@ namespace ChatClient
             client = authClient;
             stream = authStream;
             username = authUser;
+            this.serverIP = serverIP;
+            this.serverPort = serverPort;
             cts = new CancellationTokenSource();
 
             lblServerIPValue.Text = serverIP;
@@ -135,7 +145,7 @@ namespace ChatClient
 
         private void OnConnectionMessageReceived(object sender, ChatMessage message)
         {
-            if (IsDisposed) return;
+            if (IsDisposed || isClosing || !ReferenceEquals(sender, chatConnection)) return;
             if (!IsHandleCreated)
             {
                 this.HandleCreated += (s, e) =>
@@ -156,18 +166,20 @@ namespace ChatClient
                 this.HandleCreated += (s, e) =>
                 {
                     if (!IsDisposed)
-                        BeginInvoke((Action)(() => HandleConnectionClosed(error)));
+                        BeginInvoke((Action)(() => HandleConnectionClosed(sender, error)));
                 };
                 return;
             }
-            BeginInvoke((Action)(() => HandleConnectionClosed(error)));
+            BeginInvoke((Action)(() => HandleConnectionClosed(sender, error)));
         }
 
-        private void HandleConnectionClosed(Exception error)
+        private void HandleConnectionClosed(object sender, Exception error)
         {
-            if (cts == null || cts.IsCancellationRequested) return;
+            if (isClosing || !ReferenceEquals(sender, chatConnection)) return;
             AddSystemMessage(error == null ? "Máy chủ đã đóng kết nối." : "Kết nối máy chủ bị gián đoạn.");
-            Disconnect();
+            CleanupNetwork();
+            OnDisconnected();
+            _ = ReconnectAsync();
         }
 
         private void InitializeApp()
@@ -261,7 +273,7 @@ namespace ChatClient
 
         #region Connection Logic
         //Client Core/Network: đăng xuất, đóng socket, dọn tài nguyên và trạng thái kết nối.
-        public void RequestLogout()
+        public async void RequestLogout()
         {
             var result = MessageBox.Show(
                 "Bạn có chắc chắn muốn đăng xuất khỏi tài khoản?",
@@ -272,18 +284,19 @@ namespace ChatClient
             if (result == DialogResult.Yes)
             {
                 WantsRelogin = true;
-                Disconnect();
+                isClosing = true;
+                reconnectCts.Cancel();
+                await DisconnectAsync(true);
+                sessionPassword = null;
                 this.Close();
             }
         }
 
-        private void Disconnect()
+        private async Task DisconnectAsync(bool sendLogout)
         {
-            if (client == null && stream == null) return;
-
             try
             {
-                if (client != null && client.Connected && stream != null && cts != null && !cts.IsCancellationRequested)
+                if (sendLogout && client != null && client.Connected && stream != null && chatConnection != null)
                 {
                     var logoutMsg = new ChatMessage
                     {
@@ -291,14 +304,9 @@ namespace ChatClient
                         Sender = username,
                         Timestamp = DateTime.Now
                     };
-                    _ = chatConnection?.SendAsync(logoutMsg);
+                    Task sendTask = chatConnection.SendAsync(logoutMsg);
+                    await Task.WhenAny(sendTask, Task.Delay(1000));
                 }
-            }
-            catch { }
-
-            try
-            {
-                cts?.Cancel();
             }
             catch { }
 
@@ -308,12 +316,84 @@ namespace ChatClient
 
         private void CleanupNetwork()
         {
+            try { cts?.Cancel(); } catch { }
+            try { chatConnection?.Dispose(); } catch { }
+            chatConnection = null;
             try { stream?.Close(); stream?.Dispose(); } catch { }
             try { client?.Close(); } catch { }
             try { cts?.Dispose(); } catch { }
             stream = null;
             client = null;
             cts = null;
+        }
+
+        private async Task ReconnectAsync()
+        {
+            if (string.IsNullOrEmpty(sessionPassword) || isClosing) return;
+
+            await reconnectLock.WaitAsync();
+            try
+            {
+                int delay = 1000;
+                while (!isClosing && !reconnectCts.IsCancellationRequested)
+                {
+                    TcpClient newClient = null;
+                    NetworkStream newStream = null;
+                    try
+                    {
+                        lblConnectionStatusValue.Text = "Đang kết nối lại...";
+                        newClient = new TcpClient();
+                        Task connectTask = newClient.ConnectAsync(serverIP, serverPort);
+                        if (await Task.WhenAny(connectTask, Task.Delay(5000, reconnectCts.Token)) != connectTask)
+                        {
+                            newClient.Close();
+                            throw new TimeoutException();
+                        }
+                        await connectTask;
+
+                        newStream = newClient.GetStream();
+                        var login = new ChatMessage
+                        {
+                            Type = MessageType.Login,
+                            Sender = username,
+                            Password = sessionPassword,
+                            Timestamp = DateTime.Now
+                        };
+                        await MessageSerializer.SendMessageAsync(newStream, login, reconnectCts.Token);
+                        ChatMessage result = await MessageSerializer.ReceiveMessageAsync(newStream, reconnectCts.Token);
+                        if (result == null || result.Type != MessageType.LoginResult || !result.Success)
+                        {
+                            newStream.Close();
+                            newClient.Close();
+                            throw new InvalidOperationException(result == null ? "Server đã đóng kết nối." : result.Content);
+                        }
+
+                        AttachAuthenticatedSession(username, newClient, newStream, result, serverIP, serverPort);
+                        newClient = null;
+                        newStream = null;
+                        AddSystemMessage("Đã kết nối lại máy chủ.");
+                        return;
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        try { newStream?.Close(); } catch { }
+                        try { newClient?.Close(); } catch { }
+                        return;
+                    }
+                    catch
+                    {
+                        try { newStream?.Close(); } catch { }
+                        try { newClient?.Close(); } catch { }
+                        try { await Task.Delay(delay, reconnectCts.Token); }
+                        catch (OperationCanceledException) { return; }
+                        delay = Math.Min(delay * 2, 10000);
+                    }
+                }
+            }
+            finally
+            {
+                reconnectLock.Release();
+            }
         }
 
         private void OnDisconnected()
@@ -359,7 +439,8 @@ namespace ChatClient
                     if (!msg.Success)
                     {
                         MessageBox.Show($"Đăng nhập không thành công: {msg.Content}", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                        Disconnect();
+                        CleanupNetwork();
+                        OnDisconnected();
                     }
                     break;
 
@@ -1087,7 +1168,10 @@ namespace ChatClient
 
         private void ClientForm_FormClosing(object sender, FormClosingEventArgs e)
         {
-            Disconnect();
+            isClosing = true;
+            reconnectCts.Cancel();
+            CleanupNetwork();
+            sessionPassword = null;
         }
 
         #endregion
@@ -1154,6 +1238,11 @@ namespace ChatClient
         private void txtSearch_TextChanged(object sender, EventArgs e)
         {
             RefreshFilteredUserList();
+        }
+
+        private void lblOptionsTitle_Click(object sender, EventArgs e)
+        {
+
         }
     }
 }
