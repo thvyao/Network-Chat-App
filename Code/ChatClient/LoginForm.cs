@@ -23,6 +23,8 @@ namespace ChatClient
         public ChatMessage InitialMessage { get; private set; }
         public string ServerIP { get; private set; }
         public int ServerPort { get; private set; }
+        // Chỉ tồn tại trong bộ nhớ trong suốt phiên ứng dụng. Không ghi mật khẩu ra file.
+        public string SessionPassword { get; private set; }
         public LoginForm()
         {
             InitializeComponent();
@@ -207,6 +209,7 @@ namespace ChatClient
                 InitialMessage = response;
                 ServerIP = ip;
                 ServerPort = port;
+                SessionPassword = password;
 
                 loginSucceeded = true;
 
