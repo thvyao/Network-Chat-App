@@ -1,7 +1,14 @@
-﻿using System.IO;
-using ChatServer;
+﻿using ChatServer;
 using ChatShared.Protocol;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System;
+using System.Collections.Concurrent;
+using System.IO;
+using System.Net;
+using System.Net.Sockets;
+using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace ChatIntegrationTests
 {
@@ -654,5 +661,91 @@ namespace ChatIntegrationTests
             Assert.IsFalse(string.IsNullOrEmpty(fields[2]));
             Directory.Delete(testFolder, true);
         }
+        [TestMethod]
+        // test TC 190
+        public async Task TC190_GuiThatBaiKhiClientMatKetNoi()
+        {
+            ServerForm serverForm = new ServerForm();
+
+            try
+            {
+                ServerForm.ClientInfo client =
+                    new ServerForm.ClientInfo
+                    {
+                        Username = "userB",
+                        TcpClient = new TcpClient(),
+                        Stream = null,
+                        ConnectedAt = DateTime.Now,
+                        ClientCts = new CancellationTokenSource()
+                    };
+
+                ChatMessage message =
+                    new ChatMessage
+                    {
+                        Id = "TC190",
+                        Type = MessageType.PrivateMessage,
+                        Sender = "userA",
+                        Recipient = "userB",
+                        Content = "Test",
+                        Timestamp = DateTime.Now
+                    };
+
+                bool result =
+                    await serverForm.SendToClient(
+                        client,
+                        message
+                    );
+
+                Assert.IsFalse(result);
+            }
+            finally
+            {
+                ((IDisposable)serverForm).Dispose();
+            }
+
+        }
+        [TestMethod] // test tc 192
+        public void TC192_KiemTraVuotGioiHanKyTu()
+        {
+            // 65535 = chưa vượt
+            // 65536 = đúng giới hạn
+            // 65537 = bắt đầu vượt
+            // 70000 = vượt rõ ràng
+            int soKyTu = 65537;
+
+            // Tạo chuỗi toàn chữ A
+            string noiDung = new string('A', soKyTu);
+            // Tạo thư mục C:\temp
+            Directory.CreateDirectory(@"C:\temp");
+
+            // Đường dẫn file
+            string duongDanFile = @"C:\temp\TC192 kiem thu vuot ky tu .txt";
+
+            // Ghi chuỗi vào file
+            File.WriteAllText(
+                duongDanFile,
+                noiDung
+            );
+
+            // Tự mở file sau khi chạy test
+            System.Diagnostics.Process.Start(
+                "notepad.exe",
+                duongDanFile
+            );
+
+            // Kiểm tra đúng số ký tự
+            Assert.AreEqual(
+                soKyTu,
+                noiDung.Length
+            );
+
+            // Kiểm tra đã vượt giới hạn 65536 
+            Assert.IsTrue(
+                noiDung.Length > 65536,
+                "Nội dung chưa vượt giới hạn 65536 ký tự."
+            );
+        
+
+    }
     }
 }
