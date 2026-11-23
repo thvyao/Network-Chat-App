@@ -77,7 +77,15 @@ namespace ChatServer.Infrastructure
                         : string.Empty,
                     account.AvatarIndex.ToString(CultureInfo.InvariantCulture))));
 
-            File.WriteAllLines(filePath, lines, Encoding.UTF8);
+            string directory = Path.GetDirectoryName(filePath);
+            Directory.CreateDirectory(directory);
+            string temporaryPath = filePath + ".tmp";
+            string backupPath = filePath + ".bak";
+
+            File.WriteAllLines(temporaryPath, lines, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            if (File.Exists(filePath))
+                File.Copy(filePath, backupPath, overwrite: true);
+            File.Move(temporaryPath, filePath, overwrite: true);
         }
     }
 }
