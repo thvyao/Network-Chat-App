@@ -48,6 +48,7 @@ namespace ChatServer
 
         //Bộ quản trị tài khoản người dùng (đăng ký, đăng nhập, bảo mật)
         private AccountManager accountManager;
+        private readonly LoginAttemptLimiter loginAttemptLimiter = new LoginAttemptLimiter();
 
         // Lớp đóng gói thông tin phiên làm việc của một máy khách (Client) kết nối vào máy chủ.
         public class ClientInfo
@@ -317,9 +318,24 @@ namespace ChatServer
                     {
                         string reqUser = authMsg.Sender?.Trim();
                         string reqPass = authMsg.Password;
+                        string remoteAddress = endpoint?.Address.ToString();
+
+                        if (!loginAttemptLimiter.TryAllow(reqUser, remoteAddress, out string limitError))
+                        {
+                            Log("LOGIN_RATE_LIMIT", $"Tạm khóa đăng nhập '{reqUser}' từ {endpoint}.");
+                            await MessageSerializer.SendMessageAsync(stream, new ChatMessage
+                            {
+                                Type = MessageType.LoginResult,
+                                Success = false,
+                                Content = limitError,
+                                Timestamp = DateTime.Now
+                            }, clientCts.Token);
+                            continue;
+                        }
 
                         if (!accountManager.VerifyLogin(reqUser, reqPass, out var userAccount, out string loginError))
                         {
+                            loginAttemptLimiter.RecordFailure(reqUser, remoteAddress);
                             Log("LOGIN_REJECT", $"Từ chối đăng nhập '{reqUser}' từ {endpoint}: {loginError}");
                             try
                             {
@@ -335,6 +351,8 @@ namespace ChatServer
                             catch { }
                             continue;
                         }
+
+                        loginAttemptLimiter.Clear(reqUser, remoteAddress);
 
                         // Check if account is already logged in / online
                         if (connectedClients.ContainsKey(reqUser))
