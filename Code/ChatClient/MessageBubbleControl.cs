@@ -28,7 +28,7 @@ namespace ChatClient
 
         // Định nghĩa các font chữ sử dụng kết xuất
         private static readonly Font SenderFont = new Font("Segoe UI", 9f, FontStyle.Bold);
-        private static readonly Font ContentFont = new Font("Segoe UI Emoji", 9.5f, FontStyle.Regular);
+        private static readonly Font ContentFont = new Font("Segoe UI", 10f, FontStyle.Regular);
         private static readonly Font ForwardFont = new Font("Segoe UI", 8f, FontStyle.Italic);
         private static readonly Font ReplySenderFont = new Font("Segoe UI", 8f, FontStyle.Bold);
         private static readonly Font ReplyContentFont = new Font("Segoe UI", 8f, FontStyle.Regular);
@@ -37,12 +37,19 @@ namespace ChatClient
 
         // Bảng màu giao diện bong bóng chat
         private static readonly Color OwnBubbleColor = Color.FromArgb(0, 132, 255);       // Xanh dương Messenger
-        private static readonly Color OtherBubbleColor = Color.FromArgb(228, 230, 235);    // Xám nhạt
+        private Color OtherBubbleColor => darkChat ? Color.FromArgb(62, 65, 78) : Color.FromArgb(228, 230, 235);  // Xám nhạt
         private static readonly Color OwnTextColor = Color.White;
-        private static readonly Color OtherTextColor = Color.FromArgb(5, 5, 5);
-        private static readonly Color TimestampColor = Color.FromArgb(142, 142, 147);
-        private static readonly Color OtherSenderNameColor = Color.FromArgb(100, 100, 100);
+        private Color OtherTextColor => darkChat ? Color.WhiteSmoke : Color.FromArgb(5, 5, 5);
+        private Color TimestampColor => darkChat ? Color.Silver : Color.FromArgb(142, 142, 147);
+        private Color OtherSenderNameColor => darkChat ? Color.Gainsboro : Color.FromArgb(100, 100, 100);
+        private bool darkChat;
 
+        public void SetChatTheme(bool dark, Color canvas)
+        {
+            darkChat = dark;
+            BackColor = canvas;
+            Invalidate();
+        }
         private ContextMenuStrip contextMenu;
         
         public MessageBubbleControl(DisplayMessage message, Image avatar, int initialWidth)
@@ -99,7 +106,17 @@ namespace ChatClient
             return TextRenderer.MeasureText(text, font, new Size(maxWidth, int.MaxValue),
                 TextFormatFlags.WordBreak | TextFormatFlags.TextBoxControl);
         }
+        private const TextFormatFlags BodyFlags = TextFormatFlags.WordBreak | TextFormatFlags.TextBoxControl | TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix;
+        
+        private Size MeasureBody(int width)
+        {
+            if (string.IsNullOrEmpty(Message.Content))
+            {
+                return Size.Empty;
+            }
 
+            return TextRenderer.MeasureText(Message.Content, ContentFont, new Size(width, int.MaxValue), BodyFlags);
+        }
         private void CalculateLayout()
         {
             if (Message == null) return;
@@ -124,7 +141,10 @@ namespace ChatClient
             int avatarSize = 36;
             int margin = 10;
             int maxBubbleWidth = Math.Max(160, Math.Min(600, (int)(w * 0.65f)));
-            int innerMaxContentWidth = maxBubbleWidth - 24;
+            const int padX = 8;
+            const int padY = 5;
+
+            int innerMaxContentWidth = maxBubbleWidth - 2 * padX;
 
             bool hasForward = !string.IsNullOrEmpty(Message.ForwardFrom);
             bool hasReply = !string.IsNullOrEmpty(Message.ReplyToContent);
@@ -150,7 +170,7 @@ namespace ChatClient
             }
 
             // Measure Content
-            Size contentSize = MeasureString(Message.Content, ContentFont, innerMaxContentWidth);
+            Size contentSize = MeasureBody(innerMaxContentWidth);
 
             // Calculate bubble width
             int contentWidth = contentSize.Width;
@@ -161,8 +181,8 @@ namespace ChatClient
                 if (repBoxTextW > contentWidth) contentWidth = repBoxTextW;
             }
 
-            int bubbleWidth = Math.Max(70, Math.Min(contentWidth + 24, maxBubbleWidth));
-            int actualInnerWidth = bubbleWidth - 24;
+            int bubbleWidth = Math.Max(32, Math.Min(contentWidth + 2 * padX, maxBubbleWidth));
+            int actualInnerWidth = bubbleWidth - 2 * padX;
 
             // Recalculate heights with actual inner width
             if (hasForward)
@@ -174,14 +194,14 @@ namespace ChatClient
                 replySenderSize = MeasureString(repSender, ReplySenderFont, actualInnerWidth - 14);
                 replyContentSize = MeasureString(repContent, ReplyContentFont, actualInnerWidth - 14);
             }
-            contentSize = MeasureString(Message.Content, ContentFont, actualInnerWidth);
+            contentSize = MeasureBody(actualInnerWidth);
 
             // Vertical layout inside bubble
-            int innerY = 8;
+            int innerY = padY;
 
             if (hasForward)
             {
-                forwardRect = new Rectangle(12, innerY, actualInnerWidth, fwdSize.Height);
+                forwardRect = new Rectangle(padX, innerY, actualInnerWidth, fwdSize.Height);
                 innerY += fwdSize.Height + 5;
             }
             else
@@ -192,10 +212,10 @@ namespace ChatClient
             if (hasReply)
             {
                 int repBoxH = replySenderSize.Height + replyContentSize.Height + 8;
-                replyBoxRect = new Rectangle(12, innerY, actualInnerWidth, repBoxH);
-                replyBarRect = new Rectangle(12, innerY, 3, repBoxH);
-                replySenderRect = new Rectangle(19, innerY + 3, actualInnerWidth - 11, replySenderSize.Height);
-                replyTextRect = new Rectangle(19, innerY + 3 + replySenderSize.Height, actualInnerWidth - 11, replyContentSize.Height);
+                replyBoxRect = new Rectangle(padX, innerY, actualInnerWidth, repBoxH);
+                replyBarRect = new Rectangle(padX, innerY, 3, repBoxH);
+                replySenderRect = new Rectangle(padX + 7, innerY + 3, actualInnerWidth - 11, replySenderSize.Height);
+                replyTextRect = new Rectangle(padX + 7, innerY + 3 + replySenderSize.Height, actualInnerWidth - 11, replyContentSize.Height);
                 innerY += repBoxH + 6;
             }
             else
@@ -203,8 +223,8 @@ namespace ChatClient
                 replyBoxRect = Rectangle.Empty;
             }
 
-            contentRect = new Rectangle(12, innerY, actualInnerWidth, contentSize.Height);
-            innerY += contentSize.Height + 8;
+            contentRect = new Rectangle(padX, innerY, actualInnerWidth, contentSize.Height);
+            innerY += contentSize.Height + padY;
 
             int bubbleHeight = innerY;
 
@@ -306,7 +326,7 @@ namespace ChatClient
             // Draw Forward Header
             if (!forwardRect.IsEmpty)
             {
-                Color fwdColor = IsOwnMessage ? Color.FromArgb(215, 235, 255) : Color.FromArgb(100, 100, 100);
+                Color fwdColor = IsOwnMessage ? Color.FromArgb(215, 235, 255) : OtherSenderNameColor;
                 string fwdText = $"↪ Chuyển tiếp từ: {Message.ForwardFrom}";
                 TextRenderer.DrawText(g, fwdText, ForwardFont, forwardRect, fwdColor,
                     TextFormatFlags.WordBreak | TextFormatFlags.TextBoxControl);
@@ -315,11 +335,15 @@ namespace ChatClient
             // Draw Reply Quote Box
             if (!replyBoxRect.IsEmpty)
             {
-                Color repBg = IsOwnMessage ? Color.FromArgb(45, 255, 255, 255) : Color.FromArgb(215, 218, 222);
+                Color repBg = IsOwnMessage ? Color.FromArgb(45, 255, 255, 255) : (darkChat ? Color.FromArgb(79, 83, 99) : Color.FromArgb(215, 218, 222));
                 Color repBarColor = IsOwnMessage ? Color.White : OwnBubbleColor;
                 Color repSenderColor = IsOwnMessage ? Color.White : Color.FromArgb(30, 30, 30);
                 Color repTextColor = IsOwnMessage ? Color.FromArgb(230, 240, 255) : Color.FromArgb(80, 80, 80);
-
+                if (darkChat && !IsOwnMessage)
+                {
+                    repSenderColor = Color.WhiteSmoke;
+                    repTextColor = Color.WhiteSmoke;
+                }
                 using (GraphicsPath repPath = CreateRoundedRectangle(replyBoxRect, 6))
                 using (SolidBrush repBrush = new SolidBrush(repBg))
                 {
@@ -342,8 +366,7 @@ namespace ChatClient
 
             // Draw Content
             Color textColor = IsOwnMessage ? OwnTextColor : OtherTextColor;
-            TextRenderer.DrawText(g, Message.Content, ContentFont, contentRect, textColor,
-                TextFormatFlags.WordBreak | TextFormatFlags.TextBoxControl);
+            TextRenderer.DrawText(g, Message.Content, ContentFont, contentRect, textColor, BodyFlags);
 
             // Draw Timestamp
             string timeStr = Message.Timestamp.ToString("HH:mm");
@@ -354,14 +377,18 @@ namespace ChatClient
         private void DrawSystemMessage(Graphics g)
         {
             using (GraphicsPath path = CreateRoundedRectangle(systemPillRect, 10))
-            using (SolidBrush bgBrush = new SolidBrush(Color.FromArgb(240, 242, 245)))
+            using (SolidBrush bgBrush = new SolidBrush(darkChat ? OtherBubbleColor : Color.FromArgb(240, 242, 245)))
             {
                 g.FillPath(bgBrush, path);
             }
 
-            string sysText = $"[ {Message.Timestamp:HH:mm} ]  {Message.Content}";
-            TextRenderer.DrawText(g, sysText, SystemFont, systemPillRect, Color.FromArgb(100, 100, 100),
-                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.WordBreak);
+            string sysText =$"[ {Message.Timestamp:HH:mm} ]  {Message.Content}";
+
+            TextRenderer.DrawText(g, sysText, SystemFont, systemPillRect, OtherSenderNameColor,
+                TextFormatFlags.HorizontalCenter |
+                TextFormatFlags.VerticalCenter |
+                TextFormatFlags.WordBreak
+            );
         }
 
         private GraphicsPath CreateRoundedRectangle(Rectangle rect, int radius)
