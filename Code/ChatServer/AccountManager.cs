@@ -214,10 +214,20 @@ namespace ChatServer
                 return false;
             }
 
-            DateTime? previousLastLogin = account.LastLogin;
-            account.LastLogin = DateTime.Now;
-            if (!SaveAccounts(out _))
-                account.LastLogin = previousLastLogin;
+            lock (repositoryLock)
+            {
+                DateTime? previousLastLogin = account.LastLogin;
+                string previousHash = account.PasswordHash;
+                account.LastLogin = DateTime.Now;
+                if (!SecurityHelper.IsCurrentPasswordHash(account.PasswordHash))
+                    account.PasswordHash = SecurityHelper.HashPassword(password, account.Salt);
+
+                if (!SaveAccountsInternal(out _))
+                {
+                    account.LastLogin = previousLastLogin;
+                    account.PasswordHash = previousHash;
+                }
+            }
             return true;
         }
         public bool IsRegistered(string username)
