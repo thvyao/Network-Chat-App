@@ -1,9 +1,11 @@
-﻿using System;
+using System;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Net;
 using System.Net.Sockets;
+using ChatShared.Helpers;
 using ChatShared.Protocol;
+using System.Drawing;
 
 namespace ChatClient
 {
@@ -15,6 +17,36 @@ namespace ChatClient
         public RegisterForm()
         {
             InitializeComponent();
+            chkShowPassword.Font = new Font("Segoe UI", 9F);
+            lblRegisterSub.Font = new Font("Segoe UI", 9F);
+
+            AlignLayout();
+            pnlRegister.SizeChanged += (s, e) => AlignLayout();
+
+            this.ActiveControl = txtUsername;
+        }
+
+        private void AlignLayout()
+        {
+            const int w = 388;
+            int panelW = pnlRegister.ClientSize.Width;
+            int left = (panelW - w) / 2;
+
+            lblRegisterTitle.Left = (panelW - lblRegisterTitle.Width) / 2;
+            lblRegisterSub.Left = (panelW - lblRegisterSub.Width) / 2;
+
+            foreach (Control c in new Control[] { lblUsername, lblPassword, lblConfirmPassword })
+                c.Left = left;
+
+            foreach (Control c in new Control[] { txtUsername, txtPassword, txtConfirmPassword, btnRegister })
+                c.SetBounds(left, c.Top, w, c.Height);
+
+            chkShowPassword.Left = left - 2;
+            lnkLogin.Left = (panelW - lnkLogin.Width) / 2;
+
+            lblSlogan.AutoSize = true;
+            lblSlogan.TextAlign = ContentAlignment.TopLeft;
+            lblSlogan.Location = new Point(lblBrandName.Left + 4, lblBrandName.Bottom - 6);
         }
 
         public void EnableEmbeddedMode()
@@ -89,7 +121,7 @@ namespace ChatClient
             if (!IPAddress.TryParse(ip, out _))
             {
                 MessageBox.Show(
-                    "Server IP không hợp lệ. Hãy kiểm tra tại trang đăng nhập.",
+                    "Địa chỉ máy chủ không hợp lệ. Hãy kiểm tra tại trang đăng nhập.",
                     "WeTALK",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning
@@ -123,6 +155,7 @@ namespace ChatClient
                     if (await Task.WhenAny(
                             connectTask, Task.Delay(5000)) != connectTask)
                     {
+                        tcp.Close();
                         throw new TimeoutException(
                             "Không thể kết nối đến Server trong 5 giây."
                         );

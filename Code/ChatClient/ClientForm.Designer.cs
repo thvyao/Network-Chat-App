@@ -189,7 +189,7 @@ namespace ChatClient
             this.btnNewGroup.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(104)))), ((int)(((byte)(64)))), ((int)(((byte)(165)))));
             this.btnNewGroup.FlatAppearance.BorderSize = 0;
             this.btnNewGroup.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnNewGroup.Font = new System.Drawing.Font("Segoe UI", 14F, System.Drawing.FontStyle.Bold);
+            this.btnNewGroup.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Bold);
             this.btnNewGroup.ForeColor = System.Drawing.Color.White;
             this.btnNewGroup.Location = new System.Drawing.Point(340, 10);
             this.btnNewGroup.Name = "btnNewGroup";
@@ -202,7 +202,9 @@ namespace ChatClient
             // 
             this.btnGroups.FlatAppearance.BorderSize = 0;
             this.btnGroups.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnGroups.Font = new System.Drawing.Font("Segoe UI", 10.20895F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnNewGroup.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Bold);
+            this.btnNewGroup.Padding = new System.Windows.Forms.Padding(0);
+            this.btnNewGroup.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             this.btnGroups.ForeColor = System.Drawing.Color.White;
             this.btnGroups.Location = new System.Drawing.Point(183, 10);
             this.btnGroups.Name = "btnGroups";
@@ -251,10 +253,10 @@ namespace ChatClient
             // 
             this.txtSearch.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.txtSearch.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(99)))), ((int)(((byte)(60)))), ((int)(((byte)(153)))));
+            this.txtSearch.BackColor = System.Drawing.Color.FromArgb(240, 238, 248);
             this.txtSearch.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.txtSearch.Font = new System.Drawing.Font("Segoe UI", 10F);
-            this.txtSearch.ForeColor = System.Drawing.Color.White;
+            this.txtSearch.ForeColor = System.Drawing.Color.FromArgb(45, 24, 90);
             this.txtSearch.Location = new System.Drawing.Point(25, 15);
             this.txtSearch.Name = "txtSearch";
             this.txtSearch.Size = new System.Drawing.Size(344, 32);
@@ -927,8 +929,7 @@ namespace ChatClient
             this.lblChatSub.AutoSize = true;
             this.lblChatSub.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.lblChatSub.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(110)))), ((int)(((byte)(105)))), ((int)(((byte)(140)))));
-            this.lblChatSub.Location = new System.Drawing.Point(78, 39);
-            this.lblChatSub.Name = "lblChatSub";
+            this.lblChatSub.Location = new System.Drawing.Point(78, 42);
             this.lblChatSub.Size = new System.Drawing.Size(429, 23);
             this.lblChatSub.TabIndex = 2;
             this.lblChatSub.Text = "Kênh công khai - tất cả thành viên có thể đọc tin nhắn";
@@ -938,7 +939,7 @@ namespace ChatClient
             this.lblCurrentChat.AutoSize = true;
             this.lblCurrentChat.Font = new System.Drawing.Font("Segoe UI", 13F, System.Drawing.FontStyle.Bold);
             this.lblCurrentChat.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(24)))), ((int)(((byte)(90)))));
-            this.lblCurrentChat.Location = new System.Drawing.Point(78, 12);
+            this.lblCurrentChat.Location = new System.Drawing.Point(78, 6);
             this.lblCurrentChat.Name = "lblCurrentChat";
             this.lblCurrentChat.Size = new System.Drawing.Size(337, 35);
             this.lblCurrentChat.TabIndex = 1;

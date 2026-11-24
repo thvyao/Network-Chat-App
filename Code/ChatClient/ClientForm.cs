@@ -18,7 +18,7 @@ namespace ChatClient
     public partial class ClientForm : Form
     {
         private TcpClient client;
-        private NetworkStream stream; 
+        private NetworkStream stream;
         private CancellationTokenSource cts;
         private string username;
         private IChatConnection chatConnection;
@@ -30,22 +30,31 @@ namespace ChatClient
         private readonly CancellationTokenSource reconnectCts = new CancellationTokenSource();
         private bool isClosing;
         private string currentRecipient = null;
-        private readonly List<DisplayMessage> chatMessages = new List<DisplayMessage>(); 
-        private ChatMessage replyingTo = null; 
+        private readonly List<DisplayMessage> chatMessages = new List<DisplayMessage>();
+        private ChatMessage replyingTo = null;
         private readonly Dictionary<string, Image> avatarCache = new Dictionary<string, Image>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, UserListItem> onlineUsers =
             new Dictionary<string, UserListItem>(
                 StringComparer.OrdinalIgnoreCase
             );
 
-        private Image allChannelAvatar; 
+        private Image allChannelAvatar;
+        private FlowLayoutPanel chatTitleStack;
+        private FlowLayoutPanel brandStack;
+        private readonly CheckBox chkDarkChat = new CheckBox
+        {
+            Name = "chkDarkChat",
+            Text = "Chế độ tối",
+            AutoSize = true,
+            ForeColor = Color.FromArgb(45, 24, 90)
+        };
 
         // Lớp biểu diễn một mục người dùng trong danh sách lstUsers.
         public class UserListItem
         {
             public string Username { get; set; }
-            public bool IsAll { get; set; } 
-            public int UnreadCount { get; set; } 
+            public bool IsAll { get; set; }
+            public int UnreadCount { get; set; }
             public override string ToString()
             {
                 return IsAll ? "Tất cả" : Username;
@@ -57,6 +66,29 @@ namespace ChatClient
         public ClientForm()
         {
             InitializeComponent();
+
+            BuildResponsiveHeaders();
+            StyleIcons();
+            pnlSettingsHeader.Layout += LayoutSettingsHeader;
+            pnlSearch.Layout += LayoutSearchBar;
+            lblOwnUsername.AutoSize = false;
+            lblOwnUsername.AutoEllipsis = true;
+            lblOwnUsername.TextAlign = ContentAlignment.MiddleLeft;
+            pnlUserProfile.Layout += LayoutUserProfile;
+            pnlUserProfile.PerformLayout();
+            txtMessage.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+            btnSend.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+            pnlNavigation.Layout += LayoutNavigation;
+            pnlInput.Layout += LayoutComposer;
+            pnlNavigation.PerformLayout();
+            pnlInput.PerformLayout();
+            lblUsersHeader.Padding = new Padding(lblUsersHeader.Padding.Left, 0, 0, 0);
+            lblUsersHeader.TextAlign = ContentAlignment.MiddleLeft;
+            txtSearch.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+            pnlSearch.PerformLayout();
+            pnlSettingsHeader.PerformLayout();
+            pnlChatHeader.SizeChanged += (s, e) => LayoutHeaders();
+            pnlBrand.SizeChanged += (s, e) => LayoutHeaders();
 
             SendMessage(
                 txtSearch.Handle,
@@ -70,6 +102,7 @@ namespace ChatClient
             EnableDoubleBuffering(pnlChatFlow);
             EnableDoubleBuffering(lstUsers);
             InitializeApp();
+            InitializeThemeOption();
 
             lstUsers.BringToFront();
             splitContainerMain.Panel1.PerformLayout();
@@ -125,7 +158,7 @@ namespace ChatClient
             if (client == null || !client.Connected) return;
             StartConnectionEvents();
 
-            var reqList = new ChatMessage 
+            var reqList = new ChatMessage
             {
                 Type = MessageType.RequestUserList,
                 Sender = username,
@@ -187,6 +220,9 @@ namespace ChatClient
             allChannelAvatar = CreateGroupAvatar(36);
             picChatHeaderAvatar.Image = allChannelAvatar;
 
+            lblCurrentChat.Text = "Kênh Công khai";
+            lblChatSub.Text = "Tất cả thành viên có thể đọc tin nhắn";
+
             InitUserList();
 
             SetConnectedState(false);
@@ -221,31 +257,338 @@ namespace ChatClient
             pnlSettingsFooter.Controls.Add(btnLogoutSettings);
         }
 
+        private void LayoutSettingsHeader(object sender, LayoutEventArgs e)
+        {
+            int gap = Math.Max(3, Font.Height / 4);
+            int textHeight = lblSettingsTitle.PreferredSize.Height + gap + lblSettingsSubtitle.PreferredSize.Height;
+            int minimumHeight = Math.Max(textHeight, btnBackToChat.Height) + 2 * gap;
+            if (pnlSettingsHeader.MinimumSize.Height != minimumHeight)
+                pnlSettingsHeader.MinimumSize = new Size(0, minimumHeight);
 
+            int left = Font.Height;
+            int top = (pnlSettingsHeader.ClientSize.Height - textHeight) / 2;
+            lblSettingsTitle.Location = new Point(left, top);
+            lblSettingsSubtitle.Location = new Point(left, top + lblSettingsTitle.PreferredSize.Height + gap);
+            btnBackToChat.Top = (pnlSettingsHeader.ClientSize.Height - btnBackToChat.Height) / 2;
+        }
+
+        private void LayoutNavigation(object sender, LayoutEventArgs e)
+        {
+            int gap = Math.Max(6, Font.Height / 2);
+            int height = Math.Max(btnChats.PreferredSize.Height,
+                Math.Max(btnGroups.PreferredSize.Height, btnNewGroup.PreferredSize.Height));
+            pnlNavigation.MinimumSize = new Size(0, height + 2 * gap + 2);
+            int top = (pnlNavigation.ClientSize.Height - height) / 2;
+            int width = pnlNavigation.ClientSize.Width;
+            int tabWidth = Math.Max(1, (width - height - 4 * gap) / 2);
+            btnChats.SetBounds(gap, top, tabWidth, height);
+            btnGroups.SetBounds(btnChats.Right + gap, top, tabWidth, height);
+            btnNewGroup.SetBounds(width - gap - height, top, height, height);
+        }
+
+        private void LayoutComposer(object sender, LayoutEventArgs e)
+        {
+            int gap = Math.Max(6, Font.Height / 2);
+            int height = Math.Max(btnEmoji.PreferredSize.Height, btnSend.PreferredSize.Height);
+            height = Math.Max(height, txtMessage.Font.Height + gap * 2);
+            pnlInput.MinimumSize = new Size(0, height + 2 * gap);
+            int top = (pnlInput.ClientSize.Height - height) / 2;
+            int sendWidth = Math.Max(btnSend.PreferredSize.Width, 4 * Font.Height);
+            btnEmoji.SetBounds(gap, top, height, height);
+            btnSend.SetBounds(pnlInput.ClientSize.Width - gap - sendWidth, top, sendWidth, height);
+            int left = btnEmoji.Right + gap;
+            txtMessage.SetBounds(left, top, Math.Max(1, btnSend.Left - gap - left), height);
+        }
+
+        private void InitializeThemeOption()
+        {
+            chkDarkChat.Font = chkNotifications.Font;
+            chkDarkChat.TabIndex = 3;
+
+            pnlOptions.Controls.Add(chkDarkChat);
+            pnlOptions.Layout += LayoutThemeOption;
+
+            pnlOptions.PerformLayout();
+
+            chkDarkChat.CheckedChanged += (s, e) => ApplyChatTheme();
+            ApplyChatTheme();
+        }
+
+        private void LayoutThemeOption(object sender, LayoutEventArgs e)
+        {
+            int gap = Math.Max(12, Font.Height);
+
+            int leftColumnEnd = Math.Max(
+                chkNotifications.Right,
+                chkNotificationSound.Right
+            );
+
+            int leftColumnStart = leftColumnEnd + gap;
+            int availableRight = pnlOptions.ClientSize.Width - gap;
+            bool fitsBesideOptions =
+                leftColumnStart + chkDarkChat.Width <= availableRight;
+
+            chkDarkChat.Location = new Point(
+                fitsBesideOptions ? leftColumnStart : chkNotifications.Left,
+                fitsBesideOptions
+                    ? chkNotifications.Top
+                    : chkNotificationSound.Bottom + gap / 2
+            );
+
+            int minHeight = Math.Max(
+                chkDarkChat.Bottom,
+                chkNotificationSound.Bottom
+            ) + gap;
+
+            if (pnlOptions.MinimumSize.Height != minHeight)
+            {
+                pnlOptions.MinimumSize = new Size(0, minHeight);
+            }
+        }
+        private void ApplySettingsTheme(bool dark)
+        {
+            Color page = dark ? Color.FromArgb(29, 31, 39) : Color.FromArgb(248, 247, 252);
+
+            Color cardColor = dark ? Color.FromArgb(42, 44, 55) : Color.White;
+
+            Color titleColor = dark ? Color.WhiteSmoke : Color.FromArgb(45, 24, 90);
+
+            Color detailColor = dark ? Color.Gainsboro : Color.FromArgb(76, 36, 140);
+
+            foreach (Control panel in new Control[]
+            {
+        pnlSettingsView, pnlSettingsHeader, pnlSettingsBody, pnlSettingsFooter, tblSettingsCards
+            })
+            {
+                panel.BackColor = page;
+            }
+
+            foreach (Control card in new Control[]
+            {
+        pnlAccountInfo, pnlConnectionInfo, pnlOptions
+            })
+            {
+                card.BackColor = cardColor;
+
+                foreach (Control child in card.Controls)
+                {
+                    child.ForeColor = detailColor;
+                }
+            }
+
+            foreach (Control title in new Control[]
+            {
+        lblSettingsTitle, lblAccountSectionTitle, lblConnectionSectionTitle, lblOptionsTitle, chkDarkChat
+            })
+            {
+                title.ForeColor = titleColor;
+            }
+
+            lblSettingsSubtitle.ForeColor = dark ? Color.Silver : Color.FromArgb(110, 105, 140);
+
+            foreach (Control control in pnlSettingsFooter.Controls)
+            {
+                if (control is Button logoutButton)
+                {
+                    logoutButton.UseVisualStyleBackColor = false;
+
+                    logoutButton.BackColor = dark ? Color.FromArgb(75, 37, 46) : Color.FromArgb(255, 237, 240);
+
+                    logoutButton.ForeColor = dark ? Color.FromArgb(255, 170, 180) : Color.FromArgb(190, 30, 55);
+
+                    logoutButton.FlatAppearance.BorderColor = dark ? Color.FromArgb(160, 70, 90) : Color.FromArgb(235, 140, 155);
+                }
+            }
+        }
+        private void ApplyChatTheme()
+        {
+            bool dark = chkDarkChat.Checked;
+            ApplySettingsTheme(dark);
+
+            Color canvas = dark ? Color.FromArgb(29, 31, 39) : Color.White;
+
+            Color surface = dark ? Color.FromArgb(42, 44, 55) : Color.FromArgb(248, 247, 252);
+
+            Color ink = dark ? Color.WhiteSmoke : Color.FromArgb(45, 24, 90);
+
+            pnlChatFlow.BackColor = canvas;
+            pnlChatHeader.BackColor = dark ? surface : Color.White;
+            pnlInput.BackColor = surface;
+
+            txtMessage.BackColor = dark ? Color.FromArgb(55, 57, 68) : SystemColors.Window;
+            txtMessage.ForeColor = ink;
+
+            lblCurrentChat.ForeColor = ink;
+            lblChatSub.ForeColor = dark ? Color.Silver : Color.FromArgb(110, 105, 140);
+
+            btnEmoji.ForeColor = dark ? Color.WhiteSmoke : SystemColors.ControlText;
+
+            pnlReplyPreview.BackColor = dark ? surface : Color.FromArgb(235, 243, 255);
+
+            lblReplyPreviewText.ForeColor = dark ? Color.WhiteSmoke : Color.FromArgb(30, 30, 30);
+
+            btnCancelReply.ForeColor = dark ? Color.Silver : Color.FromArgb(100, 100, 100);
+
+            foreach (Control control in pnlChatFlow.Controls)
+            {
+                if (control is MessageBubbleControl bubble)
+                {
+                    bubble.SetChatTheme(dark, canvas);
+                }
+            }
+        }
+        private void LayoutUserProfile(object sender, LayoutEventArgs e)
+        {
+            int gap = Math.Max(3, Font.Height / 4);
+            const int rowGap = 1;
+
+            int nameHeight = TextRenderer.MeasureText("Nguyễn Mỹ", lblOwnUsername.Font, Size.Empty, TextFormatFlags.SingleLine | TextFormatFlags.NoPadding).Height;
+            int statusHeight = Math.Max(lblOwnStatusDot.PreferredSize.Height, lblOwnStatus.PreferredSize.Height);
+            int blockHeight = nameHeight + rowGap + statusHeight;
+            int minimumHeight =
+                Math.Max(picOwnAvatar.Height, blockHeight) + 2 * gap;
+
+            if (pnlUserProfile.MinimumSize.Height != minimumHeight)
+            {
+                pnlUserProfile.MinimumSize = new Size(0, minimumHeight);
+            }
+
+            int height = pnlUserProfile.ClientSize.Height;
+            picOwnAvatar.Top = (height - picOwnAvatar.Height) / 2;
+            int left = picOwnAvatar.Right + 2 * gap;
+            int top = Math.Min(
+                (height - blockHeight) / 2 + 2,
+                height - blockHeight - 1
+            );
+
+            lblOwnUsername.SetBounds(left, top, Math.Max(1, btnSettings.Left - left - gap), nameHeight
+            );
+
+            int rowTop = lblOwnUsername.Bottom + rowGap;
+            lblOwnStatusDot.Location = new Point(left, rowTop + (statusHeight - lblOwnStatusDot.Height) / 2
+            );
+
+            lblOwnStatus.Location = new Point(lblOwnStatusDot.Right + gap, rowTop + (statusHeight - lblOwnStatus.Height) / 2
+            );
+        }
+
+        private void LayoutSearchBar(object sender, LayoutEventArgs e)
+        {
+            int inset = Math.Max(6, Font.Height / 2);
+            int iconWidth = Math.Max(Font.Height, lblSearchIcon.GetPreferredSize(Size.Empty).Width);
+            lblSearchIcon.SetBounds(inset, 0, iconWidth, pnlSearch.ClientSize.Height);
+            int left = lblSearchIcon.Right + inset;
+            int width = Math.Max(1, pnlSearch.ClientSize.Width - left - inset);
+            txtSearch.SetBounds(left, (pnlSearch.ClientSize.Height - txtSearch.Height) / 2,
+                width, txtSearch.Height);
+        }
+
+        private FlowLayoutPanel MakeStack(Control parent, params Control[] labels)
+        {
+            var stack = new FlowLayoutPanel
+            {
+                FlowDirection = FlowDirection.TopDown,
+                WrapContents = false,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                BackColor = Color.Transparent,
+                Margin = Padding.Empty,
+                Padding = Padding.Empty
+            };
+            foreach (var l in labels)
+            {
+                parent.Controls.Remove(l);
+                l.Margin = Padding.Empty;
+                l.BackColor = Color.Transparent;
+                stack.Controls.Add(l);
+            }
+            parent.Controls.Add(stack);
+            return stack;
+        }
+
+        private void BuildResponsiveHeaders()
+        {
+            chatTitleStack = MakeStack(pnlChatHeader, lblCurrentChat, lblChatSub);
+            brandStack = MakeStack(pnlBrand, lblBrandName, label1);
+            LayoutHeaders();
+        }
+
+        private void LayoutHeaders()
+        {
+            // Header chat: avatar + 2 dòng chữ, căn giữa theo chiều dọc
+            picChatHeaderAvatar.Top = (pnlChatHeader.Height - picChatHeaderAvatar.Height) / 2;
+            chatTitleStack.Location = new Point(
+                picChatHeaderAvatar.Right + 12,
+                (pnlChatHeader.Height - chatTitleStack.PreferredSize.Height) / 2);
+
+            // Brand: logo + 2 dòng chữ
+            picBrandLogo.Top = (pnlBrand.Height - picBrandLogo.Height) / 2;
+            brandStack.Location = new Point(
+                picBrandLogo.Right + 8,
+                (pnlBrand.Height - brandStack.PreferredSize.Height) / 2);
+        }
+
+        private static readonly string IconFontName =
+    IsFontInstalled("Segoe Fluent Icons") ? "Segoe Fluent Icons" : "Segoe MDL2 Assets";
+
+        private static bool IsFontInstalled(string name)
+        {
+            using (var fonts = new System.Drawing.Text.InstalledFontCollection())
+                return fonts.Families.Any(f => f.Name == name);
+        }
+
+        private void SetIcon(Control c, string glyph, float pt)
+        {
+            c.Font = new Font(IconFontName, pt, FontStyle.Regular, GraphicsUnit.Point);
+            c.Text = glyph;
+            if (c is Button b)
+            {
+                b.UseCompatibleTextRendering = false;
+                b.TextAlign = ContentAlignment.MiddleCenter;
+                b.Padding = Padding.Empty;
+            }
+            else if (c is Label l)
+            {
+                l.TextAlign = ContentAlignment.MiddleCenter;
+            }
+        }
+
+        private void StyleIcons()
+        {
+            SetIcon(lblSearchIcon, "\uE721", 12f); // Search
+            SetIcon(btnHeaderSearch, "\uE721", 14f);
+            SetIcon(btnHeaderCall, "\uE717", 14f); // Phone
+            SetIcon(btnHeaderVideo, "\uE714", 14f); // Video
+            SetIcon(btnHeaderMore, "\uE712", 14f); // More
+            SetIcon(btnSettings, "\uE713", 16f); // Settings
+            SetIcon(btnEmoji, "\uE76E", 14f); // Emoji
+            SetIcon(btnNewGroup, "\uE710", 12f); // Add (+)
+            SetIcon(btnCancelReply, "\uE711", 10f); // Cancel (✕)
+        }
         private Image CreateGroupAvatar(int size)
         {
             Bitmap bmp = new Bitmap(size, size);
             using (Graphics g = Graphics.FromImage(bmp))
             {
                 g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
+
                 using (SolidBrush b = new SolidBrush(Color.FromArgb(104, 64, 165)))
-                {
                     g.FillEllipse(b, 0, 0, size - 1, size - 1);
-                }
-                using (Font f = new Font("Segoe UI", size * 0.38f, FontStyle.Bold))
+
+                using (Font f = new Font("Segoe UI", size * 0.30f, FontStyle.Bold, GraphicsUnit.Pixel))
                 using (SolidBrush textBrush = new SolidBrush(Color.White))
+                using (StringFormat sf = new StringFormat(StringFormatFlags.NoWrap)
                 {
-                    StringFormat sf = new StringFormat
-                    {
-                        Alignment = StringAlignment.Center,
-                        LineAlignment = StringAlignment.Center
-                    };
+                    Alignment = StringAlignment.Center,
+                    LineAlignment = StringAlignment.Center
+                })
+                {
                     g.DrawString("ALL", f, textBrush, new RectangleF(0, 0, size, size), sf);
                 }
             }
             return bmp;
         }
-
         private void EnableDoubleBuffering(Control control)
         {
             typeof(Control).InvokeMember("DoubleBuffered",
@@ -347,6 +690,7 @@ namespace ChatClient
                         if (await Task.WhenAny(connectTask, Task.Delay(5000, reconnectCts.Token)) != connectTask)
                         {
                             newClient.Close();
+                            try { await connectTask; } catch (Exception) { }
                             throw new TimeoutException();
                         }
                         await connectTask;
@@ -834,7 +1178,7 @@ namespace ChatClient
                 ChatMessage msg = new ChatMessage
                 {
                     Sender = username,
-                    Recipient = currentRecipient, 
+                    Recipient = currentRecipient,
                     Content = text,
                     Timestamp = DateTime.Now
                 };
@@ -972,6 +1316,7 @@ namespace ChatClient
             bubble.OnReplyClicked += (target) => StartReply(target);
             bubble.OnForwardClicked += (target) => PromptForward(target);
 
+            bubble.SetChatTheme(chkDarkChat.Checked, pnlChatFlow.BackColor);
             pnlChatFlow.Controls.Add(bubble);
 
             if (scroll)
@@ -1238,11 +1583,6 @@ namespace ChatClient
         private void txtSearch_TextChanged(object sender, EventArgs e)
         {
             RefreshFilteredUserList();
-        }
-
-        private void lblOptionsTitle_Click(object sender, EventArgs e)
-        {
-
         }
     }
 }

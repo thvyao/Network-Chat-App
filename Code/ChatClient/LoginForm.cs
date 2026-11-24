@@ -1,4 +1,5 @@
-﻿using ChatShared.Protocol;
+using ChatShared.Helpers;
+using ChatShared.Protocol;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -28,6 +29,14 @@ namespace ChatClient
         public LoginForm()
         {
             InitializeComponent();
+
+            chkShowPassword.Font = new Font("Segoe UI", 9F);
+            lblLoginSub.Font = new Font("Segoe UI", 9F);
+
+            AlignLayout();
+            pnlLogin.SizeChanged += (s, e) => AlignLayout();
+
+            this.ActiveControl = txtUsername;
         }
 
         private void chkShowPassword_CheckedChanged(object sender, EventArgs e)
@@ -42,6 +51,38 @@ namespace ChatClient
             }
         }
 
+        private void AlignLayout()
+        {
+            const int w = 388;                       // chiều rộng khối form
+            const int half = 164;                    // chiều rộng ô IP / Port
+            int left = (pnlLogin.ClientSize.Width - w) / 2;
+
+            // Tiêu đề căn giữa
+            lblLoginTitle.Left = (pnlLogin.ClientSize.Width - lblLoginTitle.Width) / 2;
+            lblLoginSub.Left = (pnlLogin.ClientSize.Width - lblLoginSub.Width) / 2;
+
+            // Hàng Server IP / Port
+            lblServerIP.Left = left;
+            txtServerIP.SetBounds(left, txtServerIP.Top, half, txtServerIP.Height);
+            txtPort.SetBounds(left + w - half, txtPort.Top, half, txtPort.Height);
+            lblPort.Left = txtPort.Left;
+
+            // Username, Password
+            lblUsername.Left = left;
+            lblPassword.Left = left;
+            txtUsername.SetBounds(left, txtUsername.Top, w, txtUsername.Height);
+            txtPassword.SetBounds(left, txtPassword.Top, w, txtPassword.Height);
+
+            // Checkbox, nút, link
+            chkShowPassword.Left = left - 2;
+            btnLogin.SetBounds(left, btnLogin.Top, w, btnLogin.Height);
+            lnkRegister.Left = (pnlLogin.ClientSize.Width - lnkRegister.Width) / 2;
+
+            // Brand: slogan thẳng hàng với chữ WeTALK
+            lblSlogan.AutoSize = true;
+            lblSlogan.TextAlign = ContentAlignment.TopLeft;
+            lblSlogan.Location = new Point(lblBrandName.Left + 4, lblBrandName.Bottom - 6);
+        }
 
         private async void btnLogin_Click(object sender, EventArgs e)
         {
@@ -58,11 +99,11 @@ namespace ChatClient
                 txtServerIP.Focus();
                 return;
             }
-            //Ktra định dạng IP
+            //Ktra địa chỉ IP
             if (!IPAddress.TryParse(txtServerIP.Text.Trim(), out IPAddress serverIP))
             {
                 MessageBox.Show(
-                    "Server IP không đúng định dạng.",
+                    "Địa chỉ máy chủ không hợp lệ. Nhập địa chỉ IP hoặc tên máy.",
                     "Thông báo",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning
@@ -142,6 +183,7 @@ namespace ChatClient
 
                 if (await Task.WhenAny(connectTask, Task.Delay(5000)) != connectTask)
                 {
+                    tcp.Close();
                     throw new TimeoutException(
                         "Không thể kết nối đến Server trong 5 giây."
                     );

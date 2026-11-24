@@ -54,7 +54,7 @@
             // 
             // pnlBrand
             // 
-            this.pnlBrand.AutoSize = true;
+            //this.pnlBrand.AutoSize = true;
             this.pnlBrand.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(76)))), ((int)(((byte)(36)))), ((int)(((byte)(140)))));
             this.pnlBrand.Controls.Add(this.lblSlogan);
             this.pnlBrand.Controls.Add(this.lblBrandName);
