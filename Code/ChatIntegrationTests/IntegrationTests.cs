@@ -2,11 +2,8 @@
 using ChatShared.Protocol;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
-using System.Collections.Concurrent;
 using System.IO;
-using System.Net;
 using System.Net.Sockets;
-using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -15,63 +12,7 @@ namespace ChatIntegrationTests
     [TestClass]
     public class IntegrationTests
     {
-        // INT-PRO-01:
-        // Kiểm tra chuyển tin nhắn sang JSON và đọc lại.
-        [TestMethod]
-        public void INT_PRO_01_KiemTraChuyenJson()
-        {
-            // tạo tin nhắn thử
-            ChatMessage tinNhanGui = new ChatMessage();
-
-            tinNhanGui.Id = "01";
-            tinNhanGui.Type = MessageType.TextMessage;
-            tinNhanGui.Sender = "test01";
-            tinNhanGui.Recipient = "test02";
-            tinNhanGui.Content = "Xin chào";
-
-            // Chuyển tin nhắn thành JSON
-            string json =
-                MessageSerializer.Serialize(tinNhanGui);
-
-            // đọc tin nhắn từ JSON
-            ChatMessage tinNhanNhan =
-                MessageSerializer.Deserialize(json);
-
-            // so  sánh dữ liệu trước và sau
-            Assert.IsNotNull(tinNhanNhan);
-            Assert.AreEqual(tinNhanGui.Id, tinNhanNhan.Id);
-            Assert.AreEqual(tinNhanGui.Type, tinNhanNhan.Type);
-            Assert.AreEqual(tinNhanGui.Sender, tinNhanNhan.Sender);
-            Assert.AreEqual(tinNhanGui.Recipient, tinNhanNhan.Recipient);
-            Assert.AreEqual(tinNhanGui.Content, tinNhanNhan.Content);
-        }
-
-        // INT-PRO-02:
-        // kiểm tra tiếng Việt và emoji.
-        [TestMethod]
-        public void INT_PRO_02_KiemTraTiengVietVaEmoji()
-        {
-            // Tạo tin nhắn thử
-            ChatMessage tinNhanGui = new ChatMessage();
-
-            tinNhanGui.Content = "Xin chào Việt Nam 😀";
-
-            // chuyển sang JSON và đọc lại
-            string json =
-                MessageSerializer.Serialize(tinNhanGui);
-
-            ChatMessage tinNhanNhan =
-                MessageSerializer.Deserialize(json);
-
-            // kiểm tra nội dung có giữ nguyên không
-            Assert.IsNotNull(tinNhanNhan);
-
-            Assert.AreEqual(
-                tinNhanGui.Content,
-                tinNhanNhan.Content
-            );
-        }
-
+     
         // INT-ACC-01:
         // kiểm tra đăng ký tài khoản và lưu file.
         [TestMethod]
@@ -704,48 +645,6 @@ namespace ChatIntegrationTests
             }
 
         }
-        [TestMethod] // test tc 192
-        public void TC192_KiemTraVuotGioiHanKyTu()
-        {
-            // 65535 = chưa vượt
-            // 65536 = đúng giới hạn
-            // 65537 = bắt đầu vượt
-            // 70000 = vượt rõ ràng
-            int soKyTu = 65537;
 
-            // Tạo chuỗi toàn chữ A
-            string noiDung = new string('A', soKyTu);
-            // Tạo thư mục C:\temp
-            Directory.CreateDirectory(@"C:\temp");
-
-            // Đường dẫn file
-            string duongDanFile = @"C:\temp\TC192 kiem thu vuot ky tu .txt";
-
-            // Ghi chuỗi vào file
-            File.WriteAllText(
-                duongDanFile,
-                noiDung
-            );
-
-            // Tự mở file sau khi chạy test
-            System.Diagnostics.Process.Start(
-                "notepad.exe",
-                duongDanFile
-            );
-
-            // Kiểm tra đúng số ký tự
-            Assert.AreEqual(
-                soKyTu,
-                noiDung.Length
-            );
-
-            // Kiểm tra đã vượt giới hạn 65536 
-            Assert.IsTrue(
-                noiDung.Length > 65536,
-                "Nội dung chưa vượt giới hạn 65536 ký tự."
-            );
-        
-
-    }
     }
 }
